@@ -411,6 +411,95 @@ class SimpleNoisePattern:
         return (result,)
 
 
+class HexagonPattern:
+    """
+    Generate hexagon/honeycomb patterns
+    """
+    
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "width": ("INT", {"default": 512, "min": 64, "max": 4096, "step": 8}),
+                "height": ("INT", {"default": 512, "min": 64, "max": 4096, "step": 8}),
+                "hexagon_size": ("INT", {"default": 30, "min": 10, "max": 200, "step": 5}),
+                "line_width": ("INT", {"default": 2, "min": 0, "max": 10, "step": 1}),
+                "background_color": ("STRING", {"default": "#FFFFFF"}),
+                "hexagon_color": ("STRING", {"default": "#FFFFFF"}),
+                "line_color": ("STRING", {"default": "#000000"}),
+                "filled": ("BOOLEAN", {"default": True}),
+                "batch_size": ("INT", {"default": 1, "min": 1, "max": 16}),
+            },
+        }
+    
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("image",)
+    FUNCTION = "generate_pattern"
+    CATEGORY = "Purz/Patterns/Basic"
+    
+    def hex_to_rgb(self, hex_color):
+        hex_color = hex_color.lstrip('#')
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    
+    def draw_hexagon(self, draw, center_x, center_y, size, fill_color, line_color, line_width, filled):
+        # Calculate hexagon vertices
+        vertices = []
+        for i in range(6):
+            angle = math.pi / 3 * i
+            x = center_x + size * math.cos(angle)
+            y = center_y + size * math.sin(angle)
+            vertices.append((x, y))
+        
+        if filled and fill_color:
+            draw.polygon(vertices, fill=fill_color)
+        
+        if line_width > 0:
+            # Draw outline
+            for i in range(6):
+                next_i = (i + 1) % 6
+                draw.line([vertices[i], vertices[next_i]], fill=line_color, width=line_width)
+    
+    def generate_pattern(self, width, height, hexagon_size, line_width, 
+                        background_color, hexagon_color, line_color, filled, batch_size):
+        result = []
+        
+        bg_rgb = self.hex_to_rgb(background_color)
+        hex_rgb = self.hex_to_rgb(hexagon_color)
+        line_rgb = self.hex_to_rgb(line_color)
+        
+        # Calculate hexagon dimensions
+        hex_width = hexagon_size * 2
+        hex_height = hexagon_size * math.sqrt(3)
+        
+        for _ in range(batch_size):
+            img = Image.new('RGB', (width, height), bg_rgb)
+            draw = ImageDraw.Draw(img)
+            
+            # Draw hexagons in a honeycomb pattern
+            row = 0
+            y = hexagon_size
+            while y < height + hexagon_size:
+                x = hexagon_size
+                if row % 2 == 1:
+                    x += hexagon_size * 1.5
+                
+                while x < width + hexagon_size:
+                    self.draw_hexagon(draw, x, y, hexagon_size, 
+                                    hex_rgb if filled else None, 
+                                    line_rgb, line_width, filled)
+                    x += hexagon_size * 3
+                
+                y += hex_height / 2
+                row += 1
+            
+            img_np = np.array(img).astype(np.float32) / 255.0
+            img_tensor = torch.from_numpy(img_np)
+            result.append(img_tensor)
+        
+        result = torch.stack(result)
+        return (result,)
+
+
 class GradientPattern:
     """
     Generate gradient patterns
@@ -496,6 +585,7 @@ PATTERN_NODE_CLASS_MAPPINGS = {
     "PurzGridPattern": GridPattern,
     "PurzSimpleNoisePattern": SimpleNoisePattern,
     "PurzGradientPattern": GradientPattern,
+    "PurzHexagonPattern": HexagonPattern,
 }
 
 PATTERN_NODE_DISPLAY_NAME_MAPPINGS = {
@@ -505,4 +595,5 @@ PATTERN_NODE_DISPLAY_NAME_MAPPINGS = {
     "PurzGridPattern": "Grid Pattern (Purz)",
     "PurzSimpleNoisePattern": "Simple Noise Pattern (Purz)",
     "PurzGradientPattern": "Gradient Pattern (Purz)",
+    "PurzHexagonPattern": "Hexagon Pattern (Purz)",
 }

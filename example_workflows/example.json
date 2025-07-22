@@ -1,0 +1,1762 @@
+{
+  "id": "29e9529d-16f2-4e08-af83-c4ef42d38690",
+  "revision": 0,
+  "last_node_id": 48,
+  "last_link_id": 36,
+  "nodes": [
+    {
+      "id": 13,
+      "type": "PurzImageBlur",
+      "pos": [
+        692.5547485351562,
+        9.780932426452637
+      ],
+      "size": [
+        270,
+        82
+      ],
+      "flags": {},
+      "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzImageBlur"
+      },
+      "widgets_values": [
+        "gaussian",
+        5
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 14,
+      "type": "PurzPixelate",
+      "pos": [
+        992.5547485351562,
+        19.780929565429688
+      ],
+      "size": [
+        270,
+        58
+      ],
+      "flags": {},
+      "order": 26,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 11
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzPixelate"
+      },
+      "widgets_values": [
+        10
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 15,
+      "type": "PurzEdgeDetect",
+      "pos": [
+        1282.5548095703125,
+        19.780929565429688
+      ],
+      "size": [
+        270,
+        106
+      ],
+      "flags": {},
+      "order": 27,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            15
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzEdgeDetect"
+      },
+      "widgets_values": [
+        "sobel",
+        50,
+        150
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 19,
+      "type": "PurzCheckerboardPattern",
+      "pos": [
+        1919.96826171875,
+        -523.475341796875
+      ],
+      "size": [
+        278.8648376464844,
+        178
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            16
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzCheckerboardPattern"
+      },
+      "widgets_values": [
+        512,
+        512,
+        32,
+        "#FFFFFF",
+        "#000000",
+        1
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 21,
+      "type": "PurzStripesPattern",
+      "pos": [
+        2229.968017578125,
+        -523.475341796875
+      ],
+      "size": [
+        270,
+        202
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzStripesPattern"
+      },
+      "widgets_values": [
+        512,
+        512,
+        20,
+        "vertical",
+        "#FFFFFF",
+        "#000000",
+        1
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 25,
+      "type": "PreviewImage",
+      "pos": [
+        2229.968017578125,
+        -283.4751892089844
+      ],
+      "size": [
+        267.1510925292969,
+        317.6344299316406
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 17
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 22,
+      "type": "PurzPolkaDotPattern",
+      "pos": [
+        2519.968017578125,
+        -553.475341796875
+      ],
+      "size": [
+        270,
+        226
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            18
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzPolkaDotPattern"
+      },
+      "widgets_values": [
+        512,
+        512,
+        10,
+        40,
+        "#FFFFFF",
+        "#000000",
+        true,
+        1
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 26,
+      "type": "PreviewImage",
+      "pos": [
+        2519.968017578125,
+        -283.4751892089844
+      ],
+      "size": [
+        267.1510925292969,
+        317.6344299316406
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 18
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 23,
+      "type": "PurzGridPattern",
+      "pos": [
+        2819.968017578125,
+        -563.475341796875
+      ],
+      "size": [
+        270,
+        226
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            19
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzGridPattern"
+      },
+      "widgets_values": [
+        512,
+        512,
+        32,
+        2,
+        "#FFFFFF",
+        "#000000",
+        "solid",
+        1
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 27,
+      "type": "PreviewImage",
+      "pos": [
+        2819.968017578125,
+        -283.4751892089844
+      ],
+      "size": [
+        267.1510925292969,
+        317.6344299316406
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 19
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 24,
+      "type": "PurzGradientPattern",
+      "pos": [
+        3119.968017578125,
+        -543.475341796875
+      ],
+      "size": [
+        270,
+        202
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            20
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzGradientPattern"
+      },
+      "widgets_values": [
+        512,
+        512,
+        "linear",
+        "horizontal",
+        "#000000",
+        "#FFFFFF",
+        1
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 20,
+      "type": "PreviewImage",
+      "pos": [
+        1929.96826171875,
+        -283.4751892089844
+      ],
+      "size": [
+        267.1510925292969,
+        317.6344299316406
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 16
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 28,
+      "type": "PreviewImage",
+      "pos": [
+        3129.968017578125,
+        -293.4751892089844
+      ],
+      "size": [
+        267.1510925292969,
+        317.6344299316406
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 20
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 29,
+      "type": "PurzSimpleNoisePattern",
+      "pos": [
+        3419.968017578125,
+        -573.475341796875
+      ],
+      "size": [
+        273.4029235839844,
+        226
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            21
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzSimpleNoisePattern"
+      },
+      "widgets_values": [
+        512,
+        512,
+        "random",
+        1,
+        4593,
+        "randomize",
+        false,
+        1
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 30,
+      "type": "PreviewImage",
+      "pos": [
+        3429.968017578125,
+        -293.4751892089844
+      ],
+      "size": [
+        267.1510925292969,
+        317.6344299316406
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 21
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 44,
+      "type": "VHS_VideoCombine",
+      "pos": [
+        2320.544677734375,
+        674.1219482421875
+      ],
+      "size": [
+        355.363525390625,
+        683.363525390625
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 34
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        },
+        {
+          "name": "meta_batch",
+          "shape": 7,
+          "type": "VHS_BatchManager",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-videohelpersuite",
+        "ver": "1.6.1",
+        "Node name for S&R": "VHS_VideoCombine"
+      },
+      "widgets_values": {
+        "frame_rate": 24,
+        "loop_count": 0,
+        "filename_prefix": "AnimateDiff",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 19,
+        "save_metadata": true,
+        "trim_to_audio": false,
+        "pingpong": false,
+        "save_output": true,
+        "videopreview": {
+          "hidden": false,
+          "paused": false,
+          "params": {
+            "filename": "AnimateDiff_00030.mp4",
+            "subfolder": "",
+            "type": "output",
+            "format": "video/h264-mp4",
+            "frame_rate": 24,
+            "workflow": "AnimateDiff_00030.png",
+            "fullpath": "C:\\ai\\comfy\\ComfyUI\\output\\AnimateDiff_00030.mp4"
+          }
+        }
+      },
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 39,
+      "type": "VHS_VideoCombine",
+      "pos": [
+        2700.544677734375,
+        674.1219482421875
+      ],
+      "size": [
+        355.363525390625,
+        683.363525390625
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 33
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        },
+        {
+          "name": "meta_batch",
+          "shape": 7,
+          "type": "VHS_BatchManager",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-videohelpersuite",
+        "ver": "1.6.1",
+        "Node name for S&R": "VHS_VideoCombine"
+      },
+      "widgets_values": {
+        "frame_rate": 24,
+        "loop_count": 0,
+        "filename_prefix": "AnimateDiff",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 19,
+        "save_metadata": true,
+        "trim_to_audio": false,
+        "pingpong": false,
+        "save_output": true,
+        "videopreview": {
+          "hidden": false,
+          "paused": false,
+          "params": {
+            "filename": "AnimateDiff_00033.mp4",
+            "subfolder": "",
+            "type": "output",
+            "format": "video/h264-mp4",
+            "frame_rate": 24,
+            "workflow": "AnimateDiff_00033.png",
+            "fullpath": "C:\\ai\\comfy\\ComfyUI\\output\\AnimateDiff_00033.mp4"
+          }
+        }
+      },
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 48,
+      "type": "VHS_VideoCombine",
+      "pos": [
+        3080.544677734375,
+        684.1219482421875
+      ],
+      "size": [
+        355.363525390625,
+        683.363525390625
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 36
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        },
+        {
+          "name": "meta_batch",
+          "shape": 7,
+          "type": "VHS_BatchManager",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-videohelpersuite",
+        "ver": "1.6.1",
+        "Node name for S&R": "VHS_VideoCombine"
+      },
+      "widgets_values": {
+        "frame_rate": 24,
+        "loop_count": 0,
+        "filename_prefix": "AnimateDiff",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 19,
+        "save_metadata": true,
+        "trim_to_audio": false,
+        "pingpong": false,
+        "save_output": true,
+        "videopreview": {
+          "hidden": false,
+          "paused": false,
+          "params": {
+            "filename": "AnimateDiff_00035.mp4",
+            "subfolder": "",
+            "type": "output",
+            "format": "video/h264-mp4",
+            "frame_rate": 24,
+            "workflow": "AnimateDiff_00035.png",
+            "fullpath": "C:\\ai\\comfy\\ComfyUI\\output\\AnimateDiff_00035.mp4"
+          }
+        }
+      },
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 45,
+      "type": "PurzAnimatedStripes",
+      "pos": [
+        2010.544921875,
+        224.12205505371094
+      ],
+      "size": [
+        270,
+        394
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            35
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzAnimatedStripes"
+      },
+      "widgets_values": [
+        512,
+        512,
+        20,
+        "vertical",
+        "#FFFFFF",
+        "#000000",
+        30,
+        "sine",
+        0.1,
+        "horizontal",
+        "sine",
+        "add",
+        1.0000000000000002,
+        false,
+        "constant"
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 43,
+      "type": "PurzAnimatedNoise",
+      "pos": [
+        2390.544677734375,
+        184.12210083007812
+      ],
+      "size": [
+        270,
+        442
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            34
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzAnimatedNoise"
+      },
+      "widgets_values": [
+        512,
+        512,
+        "random",
+        1,
+        1507,
+        "fixed",
+        30,
+        "square",
+        0.1,
+        "radial",
+        "sine",
+        "add",
+        1.0000000000000002,
+        false,
+        "ffffff",
+        "000000",
+        "constant"
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 42,
+      "type": "PurzAnimatedCheckerboard",
+      "pos": [
+        2750.544677734375,
+        254.12200927734375
+      ],
+      "size": [
+        292.8716735839844,
+        370
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            33
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzAnimatedCheckerboard"
+      },
+      "widgets_values": [
+        512,
+        512,
+        64,
+        "#FFFFFF",
+        "#000000",
+        30,
+        "sine",
+        0.05000000000000001,
+        "horizontal",
+        "sine",
+        "add",
+        1.0000000000000002,
+        false,
+        "constant"
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 47,
+      "type": "PurzAnimatedPolkaDots",
+      "pos": [
+        3150.544677734375,
+        214.1220703125
+      ],
+      "size": [
+        272.6304626464844,
+        418
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            36
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzAnimatedPolkaDots"
+      },
+      "widgets_values": [
+        512,
+        512,
+        20,
+        80,
+        "#FFFFFF",
+        "#000000",
+        true,
+        30,
+        "sine",
+        0.1,
+        "diagonal",
+        "sine",
+        "add",
+        1.0000000000000002,
+        false,
+        "constant"
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 46,
+      "type": "VHS_VideoCombine",
+      "pos": [
+        1930.5450439453125,
+        674.1219482421875
+      ],
+      "size": [
+        355.363525390625,
+        683.363525390625
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 35
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        },
+        {
+          "name": "meta_batch",
+          "shape": 7,
+          "type": "VHS_BatchManager",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-videohelpersuite",
+        "ver": "1.6.1",
+        "Node name for S&R": "VHS_VideoCombine"
+      },
+      "widgets_values": {
+        "frame_rate": 24,
+        "loop_count": 0,
+        "filename_prefix": "AnimateDiff",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 19,
+        "save_metadata": true,
+        "trim_to_audio": false,
+        "pingpong": false,
+        "save_output": true,
+        "videopreview": {
+          "hidden": false,
+          "paused": false,
+          "params": {
+            "filename": "AnimateDiff_00028.mp4",
+            "subfolder": "",
+            "type": "output",
+            "format": "video/h264-mp4",
+            "frame_rate": 24,
+            "workflow": "AnimateDiff_00028.png",
+            "fullpath": "C:\\ai\\comfy\\ComfyUI\\output\\AnimateDiff_00028.mp4"
+          }
+        }
+      },
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 5,
+      "type": "PreviewImage",
+      "pos": [
+        683.83447265625,
+        -429.9678649902344
+      ],
+      "size": [
+        218.39712524414062,
+        246
+      ],
+      "flags": {},
+      "order": 28,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 3
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 8,
+      "type": "PreviewImage",
+      "pos": [
+        943.5547485351562,
+        -430.2191162109375
+      ],
+      "size": [
+        210,
+        288.9186706542969
+      ],
+      "flags": {},
+      "order": 29,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 4
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 18,
+      "type": "PreviewImage",
+      "pos": [
+        1292.5548095703125,
+        179.78094482421875
+      ],
+      "size": [
+        210,
+        288.9186706542969
+      ],
+      "flags": {},
+      "order": 34,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 15
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 17,
+      "type": "PreviewImage",
+      "pos": [
+        1012.5547485351562,
+        169.78094482421875
+      ],
+      "size": [
+        210,
+        288.9186706542969
+      ],
+      "flags": {},
+      "order": 33,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 14
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 16,
+      "type": "PreviewImage",
+      "pos": [
+        702.5547485351562,
+        169.78094482421875
+      ],
+      "size": [
+        210,
+        288.9186706542969
+      ],
+      "flags": {},
+      "order": 32,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 13
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 9,
+      "type": "PurzImageRotate",
+      "pos": [
+        1250,
+        -570
+      ],
+      "size": [
+        270,
+        82
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzImageRotate"
+      },
+      "widgets_values": [
+        45,
+        "black"
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 7,
+      "type": "PurzColorAdjust",
+      "pos": [
+        932.5547485351562,
+        -580.218994140625
+      ],
+      "size": [
+        270,
+        106
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzColorAdjust"
+      },
+      "widgets_values": [
+        1,
+        1.5000000000000002,
+        0.5000000000000001
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 2,
+      "type": "PurzImageToBlackWhite",
+      "pos": [
+        680.5906982421875,
+        -500.8768310546875
+      ],
+      "size": [
+        227.40292358398438,
+        26
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzImageToBlackWhite"
+      },
+      "widgets_values": [],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 10,
+      "type": "PreviewImage",
+      "pos": [
+        1260,
+        -430
+      ],
+      "size": [
+        210,
+        288.9186706542969
+      ],
+      "flags": {},
+      "order": 30,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 7
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 11,
+      "type": "PurzImageFlip",
+      "pos": [
+        1558.85302734375,
+        -545.0900268554688
+      ],
+      "size": [
+        270,
+        58
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            9
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "purzbeats/ComfyUI-Purz",
+        "ver": "c1519ccb76ab474625d9e671ed58d5f814e086e1",
+        "Node name for S&R": "PurzImageFlip"
+      },
+      "widgets_values": [
+        "vertical"
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 12,
+      "type": "PreviewImage",
+      "pos": [
+        1565.412109375,
+        -428.0285949707031
+      ],
+      "size": [
+        210,
+        288.9186706542969
+      ],
+      "flags": {},
+      "order": 31,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 9
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 3,
+      "type": "LoadImage",
+      "pos": [
+        324.0340270996094,
+        -228.11402893066406
+      ],
+      "size": [
+        224.16378784179688,
+        327.06219482421875
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1,
+            5,
+            6,
+            8,
+            10,
+            11,
+            12
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.44",
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "example.png",
+        "image"
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    }
+  ],
+  "links": [
+    [
+      1,
+      3,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      2,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      7,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      3,
+      0,
+      7,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      3,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      9,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      3,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      9,
+      11,
+      0,
+      12,
+      0,
+      "IMAGE"
+    ],
+    [
+      10,
+      3,
+      0,
+      13,
+      0,
+      "IMAGE"
+    ],
+    [
+      11,
+      3,
+      0,
+      14,
+      0,
+      "IMAGE"
+    ],
+    [
+      12,
+      3,
+      0,
+      15,
+      0,
+      "IMAGE"
+    ],
+    [
+      13,
+      13,
+      0,
+      16,
+      0,
+      "IMAGE"
+    ],
+    [
+      14,
+      14,
+      0,
+      17,
+      0,
+      "IMAGE"
+    ],
+    [
+      15,
+      15,
+      0,
+      18,
+      0,
+      "IMAGE"
+    ],
+    [
+      16,
+      19,
+      0,
+      20,
+      0,
+      "IMAGE"
+    ],
+    [
+      17,
+      21,
+      0,
+      25,
+      0,
+      "IMAGE"
+    ],
+    [
+      18,
+      22,
+      0,
+      26,
+      0,
+      "IMAGE"
+    ],
+    [
+      19,
+      23,
+      0,
+      27,
+      0,
+      "IMAGE"
+    ],
+    [
+      20,
+      24,
+      0,
+      28,
+      0,
+      "IMAGE"
+    ],
+    [
+      21,
+      29,
+      0,
+      30,
+      0,
+      "IMAGE"
+    ],
+    [
+      33,
+      42,
+      0,
+      39,
+      0,
+      "IMAGE"
+    ],
+    [
+      34,
+      43,
+      0,
+      44,
+      0,
+      "IMAGE"
+    ],
+    [
+      35,
+      45,
+      0,
+      46,
+      0,
+      "IMAGE"
+    ],
+    [
+      36,
+      47,
+      0,
+      48,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "Animated Patterns",
+      "bounding": [
+        1920.5447998046875,
+        110.52206420898438,
+        1525.363525390625,
+        1266.9635009765625
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "Static Patterns",
+      "bounding": [
+        1909.9681396484375,
+        -647.0753173828125,
+        1797.151123046875,
+        691.2344360351562
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "Image Processing",
+      "bounding": [
+        670.5906982421875,
+        -653.8189697265625,
+        1189.838134765625,
+        1126.412353515625
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7205676431342478,
+      "offset": [
+        -224.03402709960938,
+        680.218994140625
+      ]
+    },
+    "frontendVersion": "1.23.4",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}

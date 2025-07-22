@@ -29,7 +29,7 @@ Documentation = "https://github.com/purzbeats/ComfyUI-Purz/wiki"
 "Bug Tracker" = "https://github.com/purzbeats/ComfyUI-Purz/issues"
 
 [tool.comfy]
-PublisherId = ""
+PublisherId = "purz"
 DisplayName = "ComfyUI-Purz"
 Icon = ""
 includes = [] 

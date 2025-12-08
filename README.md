@@ -13,6 +13,8 @@ A powerful real-time image filter system with WebGL preview:
 - **Real-Time Preview** - See changes instantly via WebGL shaders
 - **Non-Destructive** - Adjust filters without re-running the workflow
 - **Pipeline Output** - Filtered result outputs to the workflow for further processing
+- **25 Built-in Presets** - Professional presets for Film, Portrait, Landscape, B&W, Mood, and Creative styles
+- **Custom Presets** - Save and load your own effect combinations
 
 **Filter Categories:**
 - **Basic**: Desaturate, Brightness, Contrast, Exposure, Gamma, Vibrance, Saturation
@@ -135,6 +137,15 @@ Professional color interpolation methods:
 4. **Performance**: Lower resolution patterns render faster - upscale if needed
 5. **Experimentation**: Try different mathematical operations for unique effects
 
+## 💾 Custom Presets
+
+When you save custom presets in the Interactive Image Filter, they are stored as JSON files in:
+```
+ComfyUI/custom_nodes/ComfyUI-Purz/presets/
+```
+
+**Important:** If you uninstall or update this node pack, your custom presets may be deleted. Back up the `presets/` folder before uninstalling to preserve your saved presets.
+
 ## 🛠️ Requirements
 
 - ComfyUI
@@ -156,6 +167,13 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 If you encounter any issues or have questions, please open an issue on the GitHub repository.
 
 ## 📋 Changelog
+
+### v1.2.0 (2025-12-08)
+- **NEW: Preset System** for Interactive Image Filter
+  - 25 built-in professional presets across 6 categories (Film, Portrait, Landscape, Black & White, Mood, Creative)
+  - Save custom presets as JSON files in the `presets/` folder
+  - Load presets instantly via dropdown menu
+  - Presets are portable and can be shared between installations
 
 ### v1.1.0 (2025-12-07)
 - **NEW: Interactive Image Filter** - A powerful layer-based real-time filter system

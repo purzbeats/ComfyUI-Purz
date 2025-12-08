@@ -28,9 +28,11 @@ except ImportError:
     HAS_SERVER = False
     print("[Purz Interactive] Warning: Could not import server components")
 
-# Global storage for filter layers and rendered images (persists across executions)
-PURZ_FILTER_LAYERS = {}
-PURZ_RENDERED_IMAGES = {}  # Stores base64 PNG from WebGL canvas for exact output match
+# Global storage for filter layers and rendered frames (persists across executions)
+PURZ_FILTER_LAYERS = {}  # Filter layer definitions from frontend
+PURZ_RENDERED_IMAGES = {}  # WebGL-rendered frames (list of base64 PNGs) for batch output
+PURZ_BATCH_PENDING = {}  # Signals that backend is waiting for batch processing (node_id -> batch_size)
+PURZ_BATCH_READY = {}  # Signals that frontend finished processing (node_id -> True)
 
 
 # =============================================================================
@@ -506,78 +508,132 @@ class InteractiveImageFilter:
 
     def process(self, image, prompt=None, extra_pnginfo=None, unique_id=None):
         """
-        Process the input image with stored filter layers.
+        Process the input image batch with stored filter layers.
+        Frontend renders each frame through WebGL, backend outputs the results.
+
+        Flow for batches:
+        1. Backend saves images to temp, signals it's waiting for processing
+        2. Backend returns UI data (purz_images) to frontend
+        3. Frontend receives images, sees pending signal, processes through WebGL
+        4. Frontend sends rendered frames to backend, signals ready
+        5. Backend (still waiting) receives frames and outputs them
         """
-        # Save the original image to temp directory for interactive preview
+        node_id = str(unique_id) if unique_id is not None else None
+        batch_size = image.shape[0]
+
+        # Save ALL original images to temp directory for frontend processing
         filename_prefix = "PurzFilter" + self.prefix_append
         full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
             filename_prefix, self.output_dir, image[0].shape[1], image[0].shape[0]
         )
 
         results = []
+        for i in range(batch_size):
+            img_np = (image[i].cpu().numpy() * 255).astype(np.uint8)
+            img_pil = Image.fromarray(img_np, mode='RGB')
 
-        # Save original (first image in batch) for interactive preview
-        img_np = (image[0].cpu().numpy() * 255).astype(np.uint8)
-        img_pil = Image.fromarray(img_np, mode='RGB')
+            file = f"{filename}_{counter:05}_{i:05}.png"
+            file_path = os.path.join(full_output_folder, file)
+            img_pil.save(file_path, compress_level=self.compress_level)
 
-        file = f"{filename}_{counter:05}_.png"
-        file_path = os.path.join(full_output_folder, file)
-        img_pil.save(file_path, compress_level=self.compress_level)
+            results.append({
+                "filename": file,
+                "subfolder": subfolder,
+                "type": self.type
+            })
 
-        results.append({
-            "filename": file,
-            "subfolder": subfolder,
-            "type": self.type
-        })
-
-        # Check if we have a rendered image from the frontend (exact WebGL output)
         output_image = image
-        node_id = str(unique_id) if unique_id is not None else None
 
-        if node_id and node_id in PURZ_RENDERED_IMAGES:
-            # Use the exact rendered image from WebGL canvas - guarantees preview matches output
-            rendered_b64 = PURZ_RENDERED_IMAGES[node_id]
-            try:
-                # Decode base64 PNG
-                if "," in rendered_b64:
-                    rendered_b64 = rendered_b64.split(",")[1]
-                image_bytes = base64.b64decode(rendered_b64)
-                rendered_pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        # For batches > 1 with filters, wait for frontend to process
+        if node_id and batch_size > 1:
+            # Check if there are filters to apply
+            layers = PURZ_FILTER_LAYERS.get(node_id, [])
+            has_filters = len([l for l in layers if l.get("enabled", True)]) > 0
 
-                # Convert to tensor format [batch, H, W, C]
-                rendered_np = np.array(rendered_pil).astype(np.float32) / 255.0
-                rendered_tensor = torch.from_numpy(rendered_np).unsqueeze(0)
+            if has_filters:
+                # Signal that we're waiting for frontend processing
+                PURZ_BATCH_PENDING[node_id] = batch_size
+                PURZ_BATCH_READY[node_id] = False
 
-                # Handle batch - apply same rendered result to all batch items
-                # (The preview only shows first image, so rendered is based on that)
-                if image.shape[0] > 1:
-                    output_image = rendered_tensor.repeat(image.shape[0], 1, 1, 1)
+                # Clear any stale rendered frames
+                if node_id in PURZ_RENDERED_IMAGES:
+                    del PURZ_RENDERED_IMAGES[node_id]
+
+                print(f"[Purz Interactive] Waiting for frontend to process {batch_size} frames with {len(layers)} filter(s)...")
+
+                # Use PromptServer to send message to frontend that we need processing
+                if HAS_SERVER:
+                    PromptServer.instance.send_sync("purz.batch_pending", {
+                        "node_id": node_id,
+                        "batch_size": batch_size,
+                        "images": results
+                    })
+
+                # Wait for frontend to signal completion (with timeout)
+                max_wait = 300  # 5 minutes max
+                poll_interval = 0.1  # 100ms
+                waited = 0
+
+                while not PURZ_BATCH_READY.get(node_id, False) and waited < max_wait:
+                    time.sleep(poll_interval)
+                    waited += poll_interval
+
+                    # Log progress every 10 seconds
+                    if waited > 0 and int(waited * 10) % 100 == 0:
+                        rendered_count = len(PURZ_RENDERED_IMAGES.get(node_id, []))
+                        print(f"[Purz Interactive] Waiting... ({rendered_count}/{batch_size} frames, {int(waited)}s elapsed)")
+
+                # Check if we got the rendered frames
+                if PURZ_BATCH_READY.get(node_id, False):
+                    rendered_frames = PURZ_RENDERED_IMAGES.get(node_id, [])
+                    if rendered_frames and len(rendered_frames) == batch_size:
+                        try:
+                            batch_results = []
+                            print(f"[Purz Interactive] Decoding {len(rendered_frames)} WebGL-rendered frames")
+
+                            for i, rendered_b64 in enumerate(rendered_frames):
+                                if "," in rendered_b64:
+                                    rendered_b64 = rendered_b64.split(",")[1]
+                                image_bytes = base64.b64decode(rendered_b64)
+                                rendered_pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+                                rendered_np = np.array(rendered_pil).astype(np.float32) / 255.0
+                                batch_results.append(torch.from_numpy(rendered_np))
+
+                            output_image = torch.stack(batch_results)
+                            print(f"[Purz Interactive] Batch output ready: {output_image.shape}")
+
+                        except Exception as e:
+                            print(f"[Purz Interactive] Failed to decode rendered frames: {e}")
+                            import traceback
+                            traceback.print_exc()
+                    else:
+                        print(f"[Purz Interactive] Frame count mismatch: got {len(rendered_frames) if rendered_frames else 0}, expected {batch_size}")
                 else:
-                    output_image = rendered_tensor
+                    print(f"[Purz Interactive] Timeout waiting for frontend processing after {int(waited)}s")
 
-            except Exception as e:
-                print(f"[Purz Interactive] Failed to decode rendered image, falling back to filter stack: {e}")
-                # Fallback to Python filter implementation
-                if node_id in PURZ_FILTER_LAYERS:
-                    layers = PURZ_FILTER_LAYERS[node_id]
-                    if layers:
-                        batch_results = []
-                        for i in range(image.shape[0]):
-                            img_np = image[i].cpu().numpy().astype(np.float32)
-                            filtered = apply_filter_stack(img_np, layers)
-                            batch_results.append(torch.from_numpy(filtered))
-                        output_image = torch.stack(batch_results)
+                # Clean up
+                PURZ_BATCH_PENDING.pop(node_id, None)
+                PURZ_BATCH_READY.pop(node_id, None)
+                PURZ_RENDERED_IMAGES.pop(node_id, None)
+            else:
+                print(f"[Purz Interactive] No filters applied, outputting original batch")
 
-        elif node_id and node_id in PURZ_FILTER_LAYERS:
-            # Fallback: no rendered image available, use Python filter implementation
-            layers = PURZ_FILTER_LAYERS[node_id]
-            if layers:
-                batch_results = []
-                for i in range(image.shape[0]):
-                    img_np = image[i].cpu().numpy().astype(np.float32)
-                    filtered = apply_filter_stack(img_np, layers)
-                    batch_results.append(torch.from_numpy(filtered))
-                output_image = torch.stack(batch_results)
+        # For single images, check for pre-rendered result
+        elif node_id and node_id in PURZ_RENDERED_IMAGES:
+            rendered_frames = PURZ_RENDERED_IMAGES[node_id]
+            if rendered_frames and len(rendered_frames) > 0:
+                try:
+                    batch_results = []
+                    for rendered_b64 in rendered_frames:
+                        if "," in rendered_b64:
+                            rendered_b64 = rendered_b64.split(",")[1]
+                        image_bytes = base64.b64decode(rendered_b64)
+                        rendered_pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+                        rendered_np = np.array(rendered_pil).astype(np.float32) / 255.0
+                        batch_results.append(torch.from_numpy(rendered_np))
+                    output_image = torch.stack(batch_results)
+                except Exception as e:
+                    print(f"[Purz Interactive] Failed to decode rendered frames: {e}")
 
         return {
             "ui": {
@@ -635,28 +691,84 @@ if HAS_SERVER:
     @PromptServer.instance.routes.post("/purz/interactive/set_layers")
     async def set_filter_layers(request):
         """
-        Endpoint to store filter layers and rendered image for a node.
-        Called by frontend when layers change.
+        Endpoint to store filter layers for a node.
+        Called by frontend when layers change (for preview sync).
         """
         try:
             data = await request.json()
             node_id = str(data.get("node_id", ""))
             layers = data.get("layers", [])
-            rendered_image = data.get("rendered_image")  # Base64 PNG from WebGL canvas
 
             PURZ_FILTER_LAYERS[node_id] = layers
-
-            # Store rendered image if provided (for exact output match)
-            if rendered_image:
-                PURZ_RENDERED_IMAGES[node_id] = rendered_image
-            elif node_id in PURZ_RENDERED_IMAGES and not layers:
-                # Clear rendered image if layers are cleared
-                del PURZ_RENDERED_IMAGES[node_id]
 
             return web.json_response({"success": True})
         except Exception as e:
             import traceback
             traceback.print_exc()
+            return web.json_response({"error": str(e)}, status=500)
+
+    @PromptServer.instance.routes.post("/purz/interactive/set_rendered_batch")
+    async def set_rendered_batch(request):
+        """
+        Endpoint to store WebGL-rendered frames for batch output.
+        Called by frontend after processing all frames through WebGL.
+        Supports chunked uploads for large batches.
+        """
+        try:
+            # Read with larger limit - aiohttp default is 1MB, we need more
+            body = await request.read()
+            data = json.loads(body.decode('utf-8'))
+
+            node_id = str(data.get("node_id", ""))
+            rendered_frames = data.get("rendered_frames", [])  # List of base64 PNGs
+            chunk_index = data.get("chunk_index", 0)
+            total_chunks = data.get("total_chunks", 1)
+            is_final = data.get("is_final", True)
+
+            # For chunked uploads, append to existing frames
+            if chunk_index == 0:
+                PURZ_RENDERED_IMAGES[node_id] = rendered_frames
+            else:
+                if node_id not in PURZ_RENDERED_IMAGES:
+                    PURZ_RENDERED_IMAGES[node_id] = []
+                PURZ_RENDERED_IMAGES[node_id].extend(rendered_frames)
+
+            current_count = len(PURZ_RENDERED_IMAGES.get(node_id, []))
+            print(f"[Purz Interactive] Received chunk {chunk_index + 1}/{total_chunks} ({len(rendered_frames)} frames, total: {current_count}) for node {node_id}")
+
+            # Signal completion only on final chunk
+            if is_final:
+                PURZ_BATCH_READY[node_id] = True
+                print(f"[Purz Interactive] All {current_count} frames received for node {node_id}")
+
+            return web.json_response({"success": True, "count": current_count, "ready": is_final})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return web.json_response({"error": str(e)}, status=500)
+
+    @PromptServer.instance.routes.get("/purz/interactive/batch_pending/{node_id}")
+    async def get_batch_pending(request):
+        """
+        Check if backend is waiting for batch processing for a node.
+        Frontend can poll this to know when to start processing.
+        """
+        try:
+            node_id = request.match_info.get("node_id", "")
+            pending = PURZ_BATCH_PENDING.get(node_id, 0)
+            images = []
+
+            # If pending, include the image info so frontend can process
+            if pending > 0:
+                # Get the saved results from temp storage
+                # The images list is in the pending data
+                pass  # Images are sent via send_sync, polling is just a backup
+
+            return web.json_response({
+                "pending": pending > 0,
+                "batch_size": pending
+            })
+        except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
     # =========================================================================

@@ -2109,6 +2109,79 @@ function createStyles() {
         .purz-preset-delete-btn:hover {
             background: #c44;
         }
+        /* Playback Controls */
+        .purz-playback-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 0;
+            border-bottom: 1px solid #444;
+            margin-bottom: 6px;
+            flex-shrink: 0;
+        }
+        .purz-playback-row.hidden {
+            display: none;
+        }
+        .purz-play-btn {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 28px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .purz-play-btn:hover {
+            background: #3a8eef;
+        }
+        .purz-play-btn.playing {
+            background: #e94;
+        }
+        .purz-frame-slider {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #444;
+            border-radius: 2px;
+            outline: none;
+        }
+        .purz-frame-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4a9eff;
+            cursor: pointer;
+        }
+        .purz-frame-slider::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4a9eff;
+            cursor: pointer;
+            border: none;
+        }
+        .purz-frame-counter {
+            font-size: 10px;
+            color: #aaa;
+            min-width: 50px;
+            text-align: right;
+        }
+        .purz-fps-select {
+            background: #333;
+            color: #ddd;
+            border: 1px solid #555;
+            border-radius: 3px;
+            padding: 2px 4px;
+            font-size: 10px;
+            cursor: pointer;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -2148,6 +2221,18 @@ class InteractiveFilterWidget {
         this.sourceImage = null;
         this.minWidth = 250; // Minimum node width
         this.customPresets = {}; // Will be loaded from server
+        this.batchImages = []; // All images in current batch
+        this.batchSize = 0;
+
+        // Playback state
+        this.isPlaying = false;
+        this.currentFrame = 0;
+        this.playbackFps = 24;
+        this.playbackInterval = null;
+        this.loadedFrames = []; // Cache of loaded Image objects
+
+        // Batch processing state
+        this.batchProcessing = false;
 
         createStyles();
         this._buildUI();
@@ -2190,6 +2275,55 @@ class InteractiveFilterWidget {
         this.canvas.height = 200;
         canvasWrapper.appendChild(this.canvas);
         this.container.appendChild(canvasWrapper);
+
+        // Playback controls (hidden until batch loaded)
+        this.playbackRow = document.createElement("div");
+        this.playbackRow.className = "purz-playback-row hidden";
+
+        this.playBtn = document.createElement("button");
+        this.playBtn.className = "purz-play-btn";
+        this.playBtn.innerHTML = "▶";
+        this.playBtn.title = "Play/Pause";
+        this.playBtn.addEventListener("click", () => this._togglePlayback());
+        this.playbackRow.appendChild(this.playBtn);
+
+        this.frameSlider = document.createElement("input");
+        this.frameSlider.type = "range";
+        this.frameSlider.className = "purz-frame-slider purz-control-slider";
+        this.frameSlider.min = 0;
+        this.frameSlider.max = 0;
+        this.frameSlider.value = 0;
+        this.frameSlider.addEventListener("input", () => {
+            this._stopPlayback();
+            this.currentFrame = parseInt(this.frameSlider.value);
+            this._showFrame(this.currentFrame);
+        });
+        this.playbackRow.appendChild(this.frameSlider);
+
+        this.frameCounter = document.createElement("span");
+        this.frameCounter.className = "purz-frame-counter";
+        this.frameCounter.textContent = "0/0";
+        this.playbackRow.appendChild(this.frameCounter);
+
+        this.fpsSelect = document.createElement("select");
+        this.fpsSelect.className = "purz-fps-select";
+        [6, 8, 12, 16, 24, 30, 48, 60].forEach(fps => {
+            const opt = document.createElement("option");
+            opt.value = fps;
+            opt.textContent = `${fps}fps`;
+            if (fps === 24) opt.selected = true;
+            this.fpsSelect.appendChild(opt);
+        });
+        this.fpsSelect.addEventListener("change", () => {
+            this.playbackFps = parseInt(this.fpsSelect.value);
+            if (this.isPlaying) {
+                this._stopPlayback();
+                this._startPlayback();
+            }
+        });
+        this.playbackRow.appendChild(this.fpsSelect);
+
+        this.container.appendChild(this.playbackRow);
 
         // Layers header
         const layersHeader = document.createElement("div");
@@ -2709,8 +2843,8 @@ class InteractiveFilterWidget {
     }
 
     _syncLayersToBackend() {
-        // Send layer state AND full-resolution rendered image to backend
-        // This ensures workflow output exactly matches preview at full quality
+        // Send layer state to backend for batch processing
+        // Backend will apply filters to ALL frames in the batch using these layers
         if (!this.node?.id) return;
 
         const layerData = this.layers.map(l => ({
@@ -2720,24 +2854,239 @@ class InteractiveFilterWidget {
             params: { ...l.params }
         }));
 
-        // Capture the rendered image at FULL resolution for output quality
-        let renderedImage = null;
-        if (this.engine && this.engine.imageLoaded && this.layers.length > 0 && this.sourceImage) {
-            // Render at full resolution to match input image size
-            renderedImage = this.engine.getFullResolutionImageData(this.layers, this.sourceImage);
-        }
-
         api.fetchApi("/purz/interactive/set_layers", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 node_id: this.node.id,
-                layers: layerData,
-                rendered_image: renderedImage
+                layers: layerData
             })
         }).catch(err => {
             console.warn("[Purz] Failed to sync layers:", err);
         });
+    }
+
+    async _processAndSendBatch() {
+        // Process all batch frames through WebGL and send to backend
+        if (!this.batchImages || this.batchImages.length === 0) return;
+        if (this.batchProcessing) return; // Prevent concurrent processing
+
+        if (this.layers.length === 0) {
+            // No filters, clear any previous rendered batch
+            api.fetchApi("/purz/interactive/set_rendered_batch", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    node_id: this.node.id,
+                    rendered_frames: []
+                })
+            });
+            return;
+        }
+
+        this.batchProcessing = true;
+
+        const batchSize = this.batchImages.length;
+        console.log(`[Purz] Processing ${batchSize} frames through WebGL...`);
+        this._setStatus(`Processing ${batchSize} frames...`, "");
+
+        // Create a dedicated canvas for batch processing at full resolution
+        const batchCanvas = document.createElement("canvas");
+        batchCanvas.width = this.imageWidth;
+        batchCanvas.height = this.imageHeight;
+
+        const batchEngine = new FilterEngine(batchCanvas);
+        if (!batchEngine.gl) {
+            console.error("[Purz] Failed to create WebGL context for batch processing");
+            this._setStatus("WebGL error", "error");
+            return;
+        }
+
+        const renderedFrames = [];
+
+        for (let i = 0; i < batchSize; i++) {
+            const imgInfo = this.batchImages[i];
+            const params = new URLSearchParams({
+                filename: imgInfo.filename,
+                subfolder: imgInfo.subfolder || "",
+                type: imgInfo.type || "temp"
+            });
+            const url = `/view?${params.toString()}`;
+
+            try {
+                // Load image
+                const img = await this._loadImageAsync(url);
+
+                // Resize canvas to match this frame (in case of variable sizes)
+                batchCanvas.width = img.naturalWidth;
+                batchCanvas.height = img.naturalHeight;
+
+                // Process through WebGL
+                batchEngine.loadImage(img);
+                batchEngine.render(this.layers);
+
+                // Capture as base64 PNG
+                const imageData = batchCanvas.toDataURL("image/png");
+                renderedFrames.push(imageData);
+
+                // Update status periodically
+                if (i % 10 === 0 || i === batchSize - 1) {
+                    this._setStatus(`Processing ${i + 1}/${batchSize}...`, "");
+                }
+            } catch (err) {
+                console.error(`[Purz] Failed to process frame ${i}:`, err);
+            }
+        }
+
+        // Send rendered frames to backend in chunks to avoid request size limits
+        console.log(`[Purz] Sending ${renderedFrames.length} rendered frames to backend...`);
+
+        try {
+            const CHUNK_SIZE = 10; // Send 10 frames at a time
+            const totalChunks = Math.ceil(renderedFrames.length / CHUNK_SIZE);
+
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, renderedFrames.length);
+                const chunk = renderedFrames.slice(start, end);
+                const isLast = (i === totalChunks - 1);
+
+                this._setStatus(`Uploading ${end}/${renderedFrames.length}...`, "");
+
+                await api.fetchApi("/purz/interactive/set_rendered_batch", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        node_id: this.node.id,
+                        rendered_frames: chunk,
+                        chunk_index: i,
+                        total_chunks: totalChunks,
+                        is_final: isLast
+                    })
+                });
+            }
+
+            this._setStatus(`${renderedFrames.length} frames ready`, "success");
+        } catch (err) {
+            console.error("[Purz] Failed to send rendered batch:", err);
+            this._setStatus("Failed to sync batch", "error");
+        }
+
+        // Clean up and reset state
+        batchEngine.cleanup?.();
+        this.batchProcessing = false;
+    }
+
+    _loadImageAsync(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => resolve(img);
+            img.onerror = (err) => reject(err);
+            img.src = url;
+        });
+    }
+
+    // =========================================================================
+    // PLAYBACK METHODS
+    // =========================================================================
+
+    _initPlayback() {
+        // Show playback controls if we have multiple frames
+        if (this.batchImages.length > 1) {
+            this.playbackRow.classList.remove("hidden");
+            this.frameSlider.max = this.batchImages.length - 1;
+            this.frameSlider.value = 0;
+            this.currentFrame = 0;
+            this._updateFrameCounter();
+
+            // Preload frames for smooth playback
+            this._preloadFrames();
+        } else {
+            this.playbackRow.classList.add("hidden");
+            this._stopPlayback();
+        }
+    }
+
+    async _preloadFrames() {
+        // Preload all frames in background for smooth playback
+        this.loadedFrames = [];
+        console.log(`[Purz] Preloading ${this.batchImages.length} frames...`);
+
+        for (let i = 0; i < this.batchImages.length; i++) {
+            const imgInfo = this.batchImages[i];
+            const params = new URLSearchParams({
+                filename: imgInfo.filename,
+                subfolder: imgInfo.subfolder || "",
+                type: imgInfo.type || "temp"
+            });
+            const url = `/view?${params.toString()}`;
+
+            try {
+                const img = await this._loadImageAsync(url);
+                this.loadedFrames[i] = img;
+            } catch (err) {
+                console.warn(`[Purz] Failed to preload frame ${i}:`, err);
+                this.loadedFrames[i] = null;
+            }
+        }
+
+        console.log(`[Purz] Preloaded ${this.loadedFrames.filter(f => f).length} frames`);
+    }
+
+    _togglePlayback() {
+        if (this.isPlaying) {
+            this._stopPlayback();
+        } else {
+            this._startPlayback();
+        }
+    }
+
+    _startPlayback() {
+        if (this.batchImages.length <= 1) return;
+        if (this.isPlaying) return;
+
+        this.isPlaying = true;
+        this.playBtn.innerHTML = "⏸";
+        this.playBtn.classList.add("playing");
+
+        const frameTime = 1000 / this.playbackFps;
+        this.playbackInterval = setInterval(() => {
+            this.currentFrame = (this.currentFrame + 1) % this.batchImages.length;
+            this.frameSlider.value = this.currentFrame;
+            this._showFrame(this.currentFrame);
+        }, frameTime);
+    }
+
+    _stopPlayback() {
+        if (!this.isPlaying) return;
+
+        this.isPlaying = false;
+        this.playBtn.innerHTML = "▶";
+        this.playBtn.classList.remove("playing");
+
+        if (this.playbackInterval) {
+            clearInterval(this.playbackInterval);
+            this.playbackInterval = null;
+        }
+    }
+
+    _showFrame(frameIndex) {
+        if (frameIndex < 0 || frameIndex >= this.batchImages.length) return;
+
+        this._updateFrameCounter();
+
+        // Use preloaded frame if available
+        const img = this.loadedFrames[frameIndex];
+        if (img && this.engine) {
+            this.engine.loadImage(img);
+            this.engine.render(this.layers);
+        }
+    }
+
+    _updateFrameCounter() {
+        const total = this.batchImages.length;
+        this.frameCounter.textContent = `${this.currentFrame + 1}/${total}`;
     }
 
     _reset() {
@@ -2900,6 +3249,38 @@ app.registerExtension({
 
     async setup() {
         console.log("[Purz] Interactive filter system loaded");
+
+        // Listen for batch_pending message from backend
+        // This signals that the backend is waiting for us to process frames
+        api.addEventListener("purz.batch_pending", async (event) => {
+            console.log("[Purz] Received batch_pending event:", event);
+            const { node_id, batch_size, images } = event.detail;
+            console.log(`[Purz] Backend waiting for batch processing: node ${node_id}, ${batch_size} frames`);
+
+            // Find the node (try both string and int keys)
+            let node = app.graph._nodes_by_id[node_id];
+            if (!node) {
+                node = app.graph._nodes_by_id[parseInt(node_id)];
+            }
+            if (!node || !node.filterWidget) {
+                console.warn(`[Purz] Could not find node ${node_id} for batch processing. Available nodes:`, Object.keys(app.graph._nodes_by_id));
+                return;
+            }
+
+            const widget = node.filterWidget;
+
+            // Update batch images if provided
+            if (images && images.length > 0) {
+                widget.batchImages = images;
+                widget.batchSize = images.length;
+            }
+
+            // Process the batch through WebGL
+            if (widget.batchImages && widget.batchImages.length > 0) {
+                console.log(`[Purz] Auto-processing ${widget.batchImages.length} frames for workflow...`);
+                await widget._processAndSendBatch();
+            }
+        });
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
@@ -2944,8 +3325,12 @@ app.registerExtension({
 
                 if (!this.filterWidget) return;
 
-                // Look for purz_images (custom key to avoid ComfyUI's default preview)
+                // Store all batch image info for later processing
                 if (message?.purz_images?.length > 0) {
+                    this.filterWidget.batchImages = message.purz_images;
+                    this.filterWidget.batchSize = message.purz_images.length;
+
+                    // Load first image for preview
                     const imgInfo = message.purz_images[0];
                     const params = new URLSearchParams({
                         filename: imgInfo.filename,
@@ -2953,6 +3338,31 @@ app.registerExtension({
                         type: imgInfo.type || "temp"
                     });
                     this.filterWidget.loadImageFromUrl(`/view?${params.toString()}`);
+
+                    // Initialize playback controls for batch
+                    this.filterWidget._initPlayback();
+
+                    // For batches > 1, check if backend is waiting for processing
+                    // This is a fallback in case the WebSocket event doesn't fire
+                    if (message.purz_images.length > 1 && this.filterWidget.layers.length > 0) {
+                        const nodeId = this.id;
+                        const widget = this.filterWidget;
+
+                        // Small delay to let backend enter waiting state
+                        setTimeout(async () => {
+                            try {
+                                const response = await api.fetchApi(`/purz/interactive/batch_pending/${nodeId}`);
+                                const data = await response.json();
+
+                                if (data.pending && !widget.batchProcessing) {
+                                    console.log(`[Purz] Backend waiting for batch (poll fallback), processing ${data.batch_size} frames...`);
+                                    await widget._processAndSendBatch();
+                                }
+                            } catch (err) {
+                                console.warn("[Purz] Failed to check batch pending:", err);
+                            }
+                        }, 500);
+                    }
                 }
             };
         }

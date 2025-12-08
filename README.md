@@ -4,15 +4,34 @@ A comprehensive node pack for ComfyUI that provides powerful image effects, patt
 
 <img width="3573" height="2177" alt="Example Workflow" src="https://github.com/user-attachments/assets/b9c4c61d-f5f1-49fb-84a9-f47b2f2c9e4a" />
 
+## 🎬 Video Batch Processing (NEW in v1.3.0!)
+
+**Apply real-time WebGL filters to entire video sequences!** The Interactive Image Filter now fully supports batch processing, making it perfect for video workflows:
+
+### How It Works
+1. **Load your video** - Use any video loader node (like VHS) to load frames into ComfyUI
+2. **Connect to Interactive Filter** - Pipe your image batch into the Interactive Image Filter node
+3. **Preview & adjust** - Use the built-in playback controls to scrub through your video while adjusting filters in real-time
+4. **Run the workflow** - When you execute, all frames are automatically processed through WebGL and output as a filtered batch
+5. **Combine with video output** - Connect the output to any video combiner node to export your filtered video
+
+### Video Features
+- **Frame Playback** - Built-in play/pause and frame scrubber to preview your video
+- **Adjustable FPS** - Choose playback speed (6, 8, 12, 16, 24, 30, 48, 60 fps)
+- **Live Preview** - See filter effects applied in real-time as you scrub through frames
+- **Automatic Processing** - Backend waits for WebGL processing to complete before outputting
+- **Chunked Upload** - Large batches are uploaded efficiently in chunks to handle any video length
+
 ## 🚀 Features
 
-### 🎛️ Interactive Image Filter (NEW!)
+### 🎛️ Interactive Image Filter
 A powerful real-time image filter system with WebGL preview:
 - **42 Filter Effects** across 8 categories
 - **Layer-Based System** - Stack multiple effects with individual opacity
 - **Real-Time Preview** - See changes instantly via WebGL shaders
 - **Non-Destructive** - Adjust filters without re-running the workflow
 - **Pipeline Output** - Filtered result outputs to the workflow for further processing
+- **Video Batch Support** - Process entire video sequences with playback preview
 - **25 Built-in Presets** - Professional presets for Film, Portrait, Landscape, B&W, Mood, and Creative styles
 - **Custom Presets** - Save and load your own effect combinations
 
@@ -75,7 +94,7 @@ Bring your patterns to life with mathematical precision:
 ## 🎯 Node Categories
 
 ### Purz/Interactive
-- **Interactive Filter** - Real-time layer-based image filter with 42 effects and WebGL preview
+- **Interactive Filter** - Real-time layer-based image filter with 42 effects, WebGL preview, and video batch support
 
 ### Purz/Image/Color
 - **Image to Black & White** - Convert color images to grayscale
@@ -131,11 +150,12 @@ Professional color interpolation methods:
 
 ## 💡 Usage Tips
 
-1. **Batch Processing**: Most nodes support batch processing for multiple images
-2. **Color Formats**: Use hex color codes (e.g., #FF0000 for red) in pattern generators
-3. **Animation**: Set frame_count to create image sequences for video generation
-4. **Performance**: Lower resolution patterns render faster - upscale if needed
-5. **Experimentation**: Try different mathematical operations for unique effects
+1. **Video Workflows**: Load video with VHS or similar, connect to Interactive Filter, preview with playback controls, then output to video combiner
+2. **Batch Processing**: All nodes support batch processing for multiple images and video frames
+3. **Color Formats**: Use hex color codes (e.g., #FF0000 for red) in pattern generators
+4. **Animation**: Set frame_count to create image sequences for video generation
+5. **Performance**: Lower resolution patterns render faster - upscale if needed
+6. **Experimentation**: Try different mathematical operations for unique effects
 
 ## 💾 Custom Presets
 
@@ -167,6 +187,15 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 If you encounter any issues or have questions, please open an issue on the GitHub repository.
 
 ## 📋 Changelog
+
+### v1.3.0 (2025-12-08)
+- **NEW: Video Batch Processing** - Full support for processing video sequences
+  - Built-in playback controls with play/pause, frame scrubber, and FPS selection
+  - Real-time preview of filters on video frames as you scrub through
+  - Automatic WebGL batch processing when workflow executes
+  - Backend synchronization ensures all frames are processed before output
+  - Chunked upload system handles large video batches efficiently
+  - Works seamlessly with video loader/combiner nodes (VHS, etc.)
 
 ### v1.2.0 (2025-12-08)
 - **NEW: Preset System** for Interactive Image Filter

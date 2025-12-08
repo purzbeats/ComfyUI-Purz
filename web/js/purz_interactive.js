@@ -1567,6 +1567,277 @@ class FilterEngine {
 }
 
 // ============================================================================
+// PRESETS
+// ============================================================================
+
+const PRESETS = {
+    // --- FILM & CINEMATIC ---
+    "cinematic_teal_orange": {
+        name: "Cinematic Teal & Orange",
+        category: "Film",
+        layers: [
+            { effect: "contrast", params: { amount: 0.15 }, opacity: 1.0 },
+            { effect: "temperature", params: { amount: 0.1 }, opacity: 0.7 },
+            { effect: "shadows", params: { amount: -0.1 }, opacity: 1.0 },
+            { effect: "highlights", params: { amount: 0.05 }, opacity: 1.0 },
+            { effect: "vibrance", params: { amount: 0.2 }, opacity: 1.0 },
+            { effect: "vignette", params: { amount: 0.3, softness: 0.4 }, opacity: 0.6 }
+        ]
+    },
+    "film_noir": {
+        name: "Film Noir",
+        category: "Film",
+        layers: [
+            { effect: "desaturate", params: { amount: 1.0 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: 0.4 }, opacity: 1.0 },
+            { effect: "blacks", params: { amount: -0.15 }, opacity: 1.0 },
+            { effect: "vignette", params: { amount: 0.5, softness: 0.3 }, opacity: 0.8 },
+            { effect: "grain", params: { amount: 0.08, size: 100 }, opacity: 0.5 }
+        ]
+    },
+    "vintage_film": {
+        name: "Vintage Film",
+        category: "Film",
+        layers: [
+            { effect: "sepia", params: { amount: 0.3 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: -0.1 }, opacity: 1.0 },
+            { effect: "highlights", params: { amount: 0.1 }, opacity: 1.0 },
+            { effect: "grain", params: { amount: 0.12, size: 80 }, opacity: 0.7 },
+            { effect: "vignette", params: { amount: 0.4, softness: 0.5 }, opacity: 0.5 }
+        ]
+    },
+    "blockbuster": {
+        name: "Blockbuster",
+        category: "Film",
+        layers: [
+            { effect: "contrast", params: { amount: 0.25 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: 0.15 }, opacity: 1.0 },
+            { effect: "clarity", params: { amount: 0.3 }, opacity: 0.8 },
+            { effect: "shadows", params: { amount: -0.1 }, opacity: 1.0 },
+            { effect: "vignette", params: { amount: 0.25, softness: 0.5 }, opacity: 0.5 }
+        ]
+    },
+    "faded_film": {
+        name: "Faded Film",
+        category: "Film",
+        layers: [
+            { effect: "blacks", params: { amount: 0.1 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: -0.15 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: -0.2 }, opacity: 1.0 },
+            { effect: "temperature", params: { amount: 0.05 }, opacity: 0.6 },
+            { effect: "grain", params: { amount: 0.06, size: 120 }, opacity: 0.6 }
+        ]
+    },
+
+    // --- PORTRAIT ---
+    "portrait_soft": {
+        name: "Soft Portrait",
+        category: "Portrait",
+        layers: [
+            { effect: "clarity", params: { amount: -0.2 }, opacity: 0.6 },
+            { effect: "highlights", params: { amount: 0.1 }, opacity: 1.0 },
+            { effect: "vibrance", params: { amount: 0.15 }, opacity: 1.0 },
+            { effect: "vignette", params: { amount: 0.2, softness: 0.6 }, opacity: 0.4 }
+        ]
+    },
+    "portrait_dramatic": {
+        name: "Dramatic Portrait",
+        category: "Portrait",
+        layers: [
+            { effect: "contrast", params: { amount: 0.2 }, opacity: 1.0 },
+            { effect: "clarity", params: { amount: 0.25 }, opacity: 0.7 },
+            { effect: "shadows", params: { amount: -0.15 }, opacity: 1.0 },
+            { effect: "highlights", params: { amount: 0.1 }, opacity: 1.0 },
+            { effect: "vignette", params: { amount: 0.35, softness: 0.4 }, opacity: 0.6 }
+        ]
+    },
+    "portrait_warm": {
+        name: "Warm Portrait",
+        category: "Portrait",
+        layers: [
+            { effect: "temperature", params: { amount: 0.15 }, opacity: 1.0 },
+            { effect: "exposure", params: { amount: 0.1 }, opacity: 1.0 },
+            { effect: "vibrance", params: { amount: 0.1 }, opacity: 1.0 },
+            { effect: "vignette", params: { amount: 0.15, softness: 0.5 }, opacity: 0.4 }
+        ]
+    },
+
+    // --- LANDSCAPE ---
+    "landscape_vivid": {
+        name: "Vivid Landscape",
+        category: "Landscape",
+        layers: [
+            { effect: "vibrance", params: { amount: 0.35 }, opacity: 1.0 },
+            { effect: "clarity", params: { amount: 0.3 }, opacity: 0.8 },
+            { effect: "dehaze", params: { amount: 0.2 }, opacity: 0.7 },
+            { effect: "highlights", params: { amount: -0.1 }, opacity: 1.0 },
+            { effect: "shadows", params: { amount: 0.15 }, opacity: 1.0 }
+        ]
+    },
+    "landscape_moody": {
+        name: "Moody Landscape",
+        category: "Landscape",
+        layers: [
+            { effect: "contrast", params: { amount: 0.2 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: -0.25 }, opacity: 1.0 },
+            { effect: "temperature", params: { amount: -0.1 }, opacity: 0.8 },
+            { effect: "vignette", params: { amount: 0.3, softness: 0.4 }, opacity: 0.6 },
+            { effect: "clarity", params: { amount: 0.2 }, opacity: 0.7 }
+        ]
+    },
+    "golden_hour": {
+        name: "Golden Hour",
+        category: "Landscape",
+        layers: [
+            { effect: "temperature", params: { amount: 0.25 }, opacity: 1.0 },
+            { effect: "exposure", params: { amount: 0.15 }, opacity: 0.8 },
+            { effect: "highlights", params: { amount: 0.15 }, opacity: 1.0 },
+            { effect: "vibrance", params: { amount: 0.2 }, opacity: 1.0 },
+            { effect: "vignette", params: { amount: 0.2, softness: 0.6 }, opacity: 0.4 }
+        ]
+    },
+    "blue_hour": {
+        name: "Blue Hour",
+        category: "Landscape",
+        layers: [
+            { effect: "temperature", params: { amount: -0.2 }, opacity: 1.0 },
+            { effect: "tint", params: { amount: 0.05 }, opacity: 0.6 },
+            { effect: "contrast", params: { amount: 0.1 }, opacity: 1.0 },
+            { effect: "shadows", params: { amount: -0.1 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: 0.1 }, opacity: 0.8 }
+        ]
+    },
+
+    // --- BLACK & WHITE ---
+    "bw_high_contrast": {
+        name: "B&W High Contrast",
+        category: "Black & White",
+        layers: [
+            { effect: "desaturate", params: { amount: 1.0 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: 0.4 }, opacity: 1.0 },
+            { effect: "clarity", params: { amount: 0.2 }, opacity: 0.8 }
+        ]
+    },
+    "bw_soft": {
+        name: "B&W Soft",
+        category: "Black & White",
+        layers: [
+            { effect: "desaturate", params: { amount: 1.0 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: -0.1 }, opacity: 1.0 },
+            { effect: "blacks", params: { amount: 0.05 }, opacity: 1.0 },
+            { effect: "grain", params: { amount: 0.04, size: 150 }, opacity: 0.5 }
+        ]
+    },
+    "bw_dramatic": {
+        name: "B&W Dramatic",
+        category: "Black & White",
+        layers: [
+            { effect: "desaturate", params: { amount: 1.0 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: 0.35 }, opacity: 1.0 },
+            { effect: "clarity", params: { amount: 0.3 }, opacity: 0.8 },
+            { effect: "vignette", params: { amount: 0.4, softness: 0.35 }, opacity: 0.7 }
+        ]
+    },
+
+    // --- MOOD & STYLE ---
+    "dreamy": {
+        name: "Dreamy",
+        category: "Mood",
+        layers: [
+            { effect: "blur", params: { amount: 1.5 }, opacity: 0.3 },
+            { effect: "highlights", params: { amount: 0.2 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: -0.15 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: -0.1 }, opacity: 1.0 }
+        ]
+    },
+    "dark_moody": {
+        name: "Dark & Moody",
+        category: "Mood",
+        layers: [
+            { effect: "exposure", params: { amount: -0.2 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: 0.2 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: -0.3 }, opacity: 1.0 },
+            { effect: "vignette", params: { amount: 0.45, softness: 0.35 }, opacity: 0.7 }
+        ]
+    },
+    "light_airy": {
+        name: "Light & Airy",
+        category: "Mood",
+        layers: [
+            { effect: "exposure", params: { amount: 0.25 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: -0.15 }, opacity: 1.0 },
+            { effect: "highlights", params: { amount: 0.15 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: -0.1 }, opacity: 1.0 }
+        ]
+    },
+    "cyberpunk": {
+        name: "Cyberpunk",
+        category: "Mood",
+        layers: [
+            { effect: "contrast", params: { amount: 0.3 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: 0.3 }, opacity: 1.0 },
+            { effect: "tint", params: { amount: 0.15 }, opacity: 0.6 },
+            { effect: "chromatic", params: { amount: 3 }, opacity: 0.4 },
+            { effect: "vignette", params: { amount: 0.35, softness: 0.3 }, opacity: 0.6 }
+        ]
+    },
+    "retro_80s": {
+        name: "Retro 80s",
+        category: "Mood",
+        layers: [
+            { effect: "contrast", params: { amount: 0.2 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: 0.25 }, opacity: 1.0 },
+            { effect: "tint", params: { amount: 0.1 }, opacity: 0.5 },
+            { effect: "grain", params: { amount: 0.08, size: 100 }, opacity: 0.5 },
+            { effect: "vignette", params: { amount: 0.25, softness: 0.5 }, opacity: 0.5 }
+        ]
+    },
+
+    // --- CREATIVE ---
+    "duotone_blue": {
+        name: "Duotone Blue",
+        category: "Creative",
+        layers: [
+            { effect: "duotone", params: { shadowR: 0.0, shadowG: 0.1, shadowB: 0.3, highlightR: 0.9, highlightG: 0.95, highlightB: 1.0 }, opacity: 1.0 }
+        ]
+    },
+    "duotone_warm": {
+        name: "Duotone Warm",
+        category: "Creative",
+        layers: [
+            { effect: "duotone", params: { shadowR: 0.2, shadowG: 0.05, shadowB: 0.0, highlightR: 1.0, highlightG: 0.95, highlightB: 0.8 }, opacity: 1.0 }
+        ]
+    },
+    "cross_process": {
+        name: "Cross Process",
+        category: "Creative",
+        layers: [
+            { effect: "curves", params: { shadows: 0.1, midtones: -0.05, highlights: 0.1 }, opacity: 1.0 },
+            { effect: "channelMixer", params: { redShift: 0.05, greenShift: -0.05, blueShift: 0.1 }, opacity: 0.7 },
+            { effect: "contrast", params: { amount: 0.15 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: 0.2 }, opacity: 1.0 }
+        ]
+    },
+    "lomo": {
+        name: "Lomo",
+        category: "Creative",
+        layers: [
+            { effect: "contrast", params: { amount: 0.3 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: 0.25 }, opacity: 1.0 },
+            { effect: "vignette", params: { amount: 0.5, softness: 0.3 }, opacity: 0.8 },
+            { effect: "grain", params: { amount: 0.06, size: 100 }, opacity: 0.5 }
+        ]
+    },
+    "sketch_effect": {
+        name: "Sketch",
+        category: "Creative",
+        layers: [
+            { effect: "sketch", params: { amount: 4.0 }, opacity: 1.0 }
+        ]
+    }
+};
+
+// ============================================================================
 // UI STYLES
 // ============================================================================
 
@@ -1766,6 +2037,78 @@ function createStyles() {
             color: #666;
             font-size: 10px;
         }
+        /* Preset Controls */
+        .purz-preset-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #444;
+            flex-shrink: 0;
+        }
+        .purz-preset-select {
+            flex: 1;
+            background: #333;
+            color: #ddd;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 11px;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%23999' d='M0 3l5 5 5-5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 6px center;
+            padding-right: 20px;
+        }
+        .purz-preset-select:hover {
+            border-color: #666;
+        }
+        .purz-preset-select:focus {
+            outline: none;
+            border-color: #4a9eff;
+        }
+        .purz-preset-select optgroup {
+            background: #2a2a2a;
+            color: #888;
+            font-weight: 600;
+            font-style: normal;
+        }
+        .purz-preset-select option {
+            background: #333;
+            color: #ddd;
+            padding: 4px;
+        }
+        .purz-preset-save-btn {
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 10px;
+            white-space: nowrap;
+        }
+        .purz-preset-save-btn:hover {
+            background: #666;
+        }
+        .purz-preset-save-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .purz-preset-delete-btn {
+            background: #a33;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 6px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        .purz-preset-delete-btn:hover {
+            background: #c44;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -1804,14 +2147,38 @@ class InteractiveFilterWidget {
         this.imageHeight = 0;
         this.sourceImage = null;
         this.minWidth = 250; // Minimum node width
+        this.customPresets = {}; // Will be loaded from server
 
         createStyles();
         this._buildUI();
+        this._initPresets();
+    }
+
+    async _initPresets() {
+        await this._loadCustomPresets();
+        this._buildPresetDropdown();
     }
 
     _buildUI() {
         this.container = document.createElement("div");
         this.container.className = "purz-filter-container";
+
+        // Capture pointer events on sliders before they bubble to node
+        this.container.addEventListener("pointerdown", (e) => {
+            if (e.target.classList.contains("purz-control-slider")) {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                e.target.focus();
+                e.target.setPointerCapture(e.pointerId);
+            }
+        }, true);
+        this.container.addEventListener("mousedown", (e) => {
+            if (e.target.classList.contains("purz-control-slider")) {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                e.target.focus();
+            }
+        }, true);
 
         // Canvas wrapper (visible preview)
         const canvasWrapper = document.createElement("div");
@@ -1840,6 +2207,23 @@ class InteractiveFilterWidget {
         layersHeader.appendChild(addBtn);
 
         this.container.appendChild(layersHeader);
+
+        // Preset selector row
+        this.presetRow = document.createElement("div");
+        this.presetRow.className = "purz-preset-row";
+
+        // Build the preset dropdown (can be rebuilt when custom presets change)
+        this._buildPresetDropdown();
+
+        // Save preset button
+        const savePresetBtn = document.createElement("button");
+        savePresetBtn.className = "purz-preset-save-btn";
+        savePresetBtn.textContent = "Save";
+        savePresetBtn.title = "Save current effects as a preset";
+        savePresetBtn.addEventListener("click", () => this._savePreset());
+        this.presetRow.appendChild(savePresetBtn);
+
+        this.container.appendChild(this.presetRow);
 
         // Layers list
         this.layersList = document.createElement("div");
@@ -1908,6 +2292,222 @@ class InteractiveFilterWidget {
         this._renderLayers();
         this._updatePreview();
         fitHeight(this.node, this);
+    }
+
+    _loadPreset(presetKey) {
+        // Check built-in presets first, then custom presets
+        let preset = PRESETS[presetKey];
+        let isCustom = false;
+
+        if (!preset) {
+            preset = this.customPresets[presetKey];
+            isCustom = true;
+        }
+
+        if (!preset) return;
+
+        // Clear existing layers
+        this.layers = [];
+        this.layerIdCounter = 0;
+
+        // Add layers from preset
+        for (const presetLayer of preset.layers) {
+            const effectDef = EFFECTS[presetLayer.effect];
+            if (!effectDef) continue; // Skip unknown effects
+
+            const layer = {
+                id: ++this.layerIdCounter,
+                effect: presetLayer.effect,
+                enabled: true,
+                opacity: presetLayer.opacity ?? 1.0,
+                params: {}
+            };
+
+            // Set default params first
+            for (const param of effectDef.params) {
+                layer.params[param.name] = param.default;
+            }
+
+            // Override with preset params
+            if (presetLayer.params) {
+                for (const [paramName, paramValue] of Object.entries(presetLayer.params)) {
+                    layer.params[paramName] = paramValue;
+                }
+            }
+
+            // Generate seed for effects that need it
+            if (effectDef.needsSeed) {
+                layer.params.seed = Math.random() * 1000;
+            }
+
+            this.layers.push(layer);
+        }
+
+        this._renderLayers();
+        this._updatePreview();
+        fitHeight(this.node, this);
+
+        // Show status
+        this._setStatus(`Loaded: ${preset.name}`, "success");
+    }
+
+    _buildPresetDropdown() {
+        // Remove existing select if rebuilding
+        const existingSelect = this.presetRow?.querySelector(".purz-preset-select");
+        if (existingSelect) {
+            existingSelect.remove();
+        }
+
+        const presetSelect = document.createElement("select");
+        presetSelect.className = "purz-preset-select";
+
+        // Default option
+        const defaultOption = document.createElement("option");
+        defaultOption.value = "";
+        defaultOption.textContent = "Load Preset...";
+        presetSelect.appendChild(defaultOption);
+
+        // Get custom presets from instance
+        const hasCustomPresets = Object.keys(this.customPresets).length > 0;
+
+        // Add custom presets first if any exist
+        if (hasCustomPresets) {
+            const customOptgroup = document.createElement("optgroup");
+            customOptgroup.label = "My Presets";
+            for (const [key, preset] of Object.entries(this.customPresets)) {
+                const option = document.createElement("option");
+                option.value = key;
+                option.textContent = preset.name;
+                customOptgroup.appendChild(option);
+            }
+            presetSelect.appendChild(customOptgroup);
+        }
+
+        // Group built-in presets by category
+        const categories = {};
+        for (const [key, preset] of Object.entries(PRESETS)) {
+            const cat = preset.category || "Other";
+            if (!categories[cat]) categories[cat] = [];
+            categories[cat].push({ key, name: preset.name });
+        }
+
+        // Create optgroups for each category
+        for (const [category, presets] of Object.entries(categories)) {
+            const optgroup = document.createElement("optgroup");
+            optgroup.label = category;
+            for (const { key, name } of presets) {
+                const option = document.createElement("option");
+                option.value = key;
+                option.textContent = name;
+                optgroup.appendChild(option);
+            }
+            presetSelect.appendChild(optgroup);
+        }
+
+        presetSelect.addEventListener("change", () => {
+            if (presetSelect.value) {
+                this._loadPreset(presetSelect.value);
+                presetSelect.value = ""; // Reset to "Load Preset..."
+            }
+        });
+
+        // Insert at beginning of preset row
+        this.presetRow.insertBefore(presetSelect, this.presetRow.firstChild);
+    }
+
+    async _savePreset() {
+        if (this.layers.length === 0) {
+            this._setStatus("Add effects first", "error");
+            return;
+        }
+
+        // Prompt for preset name
+        const name = prompt("Enter a name for your preset:");
+        if (!name || !name.trim()) return;
+
+        const trimmedName = name.trim();
+
+        // Build preset data from current layers
+        const presetLayers = this.layers.map(layer => {
+            const layerData = {
+                effect: layer.effect,
+                params: { ...layer.params },
+                opacity: layer.opacity
+            };
+            // Remove seed from saved preset (will be regenerated on load)
+            delete layerData.params.seed;
+            return layerData;
+        });
+
+        this._setStatus("Saving...", "");
+
+        try {
+            const response = await fetch("/purz/presets/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: trimmedName,
+                    layers: presetLayers
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                // Rebuild dropdown to include new preset
+                await this._loadCustomPresets();
+                this._buildPresetDropdown();
+                this._setStatus(`Saved: ${trimmedName}`, "success");
+            } else {
+                this._setStatus(`Error: ${result.error}`, "error");
+            }
+        } catch (e) {
+            console.error("Failed to save preset:", e);
+            this._setStatus("Failed to save preset", "error");
+        }
+    }
+
+    async _deleteCustomPreset(presetKey) {
+        const preset = this.customPresets[presetKey];
+        if (!preset) return;
+
+        if (!confirm(`Delete preset "${preset.name}"?`)) return;
+
+        try {
+            const response = await fetch("/purz/presets/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ key: presetKey })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                // Rebuild dropdown
+                await this._loadCustomPresets();
+                this._buildPresetDropdown();
+                this._setStatus(`Deleted: ${preset.name}`, "success");
+            } else {
+                this._setStatus(`Error: ${result.error}`, "error");
+            }
+        } catch (e) {
+            console.error("Failed to delete preset:", e);
+            this._setStatus("Failed to delete preset", "error");
+        }
+    }
+
+    async _loadCustomPresets() {
+        try {
+            const response = await fetch("/purz/presets/list");
+            const result = await response.json();
+            if (result.success) {
+                this.customPresets = result.presets || {};
+            } else {
+                console.error("Failed to load presets:", result.error);
+                this.customPresets = {};
+            }
+        } catch (e) {
+            console.error("Failed to load custom presets:", e);
+            this.customPresets = {};
+        }
     }
 
     _renderLayers() {
@@ -2015,6 +2615,23 @@ class InteractiveFilterWidget {
             slider.step = param.step;
             slider.value = layer.params[param.name] ?? param.default;
 
+            // Prevent node dragging when interacting with slider (capture phase)
+            slider.addEventListener("mousedown", (e) => {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                slider.focus();
+            }, true);
+            slider.addEventListener("pointerdown", (e) => {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                slider.setPointerCapture(e.pointerId);
+                slider.focus();
+            }, true);
+            slider.addEventListener("touchstart", (e) => {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+            }, true);
+
             const valueSpan = document.createElement("span");
             valueSpan.className = "purz-control-value";
             valueSpan.textContent = parseFloat(slider.value).toFixed(2);
@@ -2046,6 +2663,23 @@ class InteractiveFilterWidget {
         opacitySlider.max = 1;
         opacitySlider.step = 0.01;
         opacitySlider.value = layer.opacity;
+
+        // Prevent node dragging when interacting with slider (capture phase)
+        opacitySlider.addEventListener("mousedown", (e) => {
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            opacitySlider.focus();
+        }, true);
+        opacitySlider.addEventListener("pointerdown", (e) => {
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            opacitySlider.setPointerCapture(e.pointerId);
+            opacitySlider.focus();
+        }, true);
+        opacitySlider.addEventListener("touchstart", (e) => {
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        }, true);
 
         const opacityValue = document.createElement("span");
         opacityValue.className = "purz-control-value";

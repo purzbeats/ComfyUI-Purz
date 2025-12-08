@@ -659,6 +659,118 @@ if HAS_SERVER:
             traceback.print_exc()
             return web.json_response({"error": str(e)}, status=500)
 
+    # =========================================================================
+    # PRESET API ENDPOINTS
+    # =========================================================================
+
+    def _get_presets_dir():
+        """Get the presets directory path."""
+        return os.path.join(os.path.dirname(__file__), "presets")
+
+    @PromptServer.instance.routes.get("/purz/presets/list")
+    async def list_presets(request):
+        """
+        List all custom presets from the presets folder.
+        """
+        try:
+            presets_dir = _get_presets_dir()
+            os.makedirs(presets_dir, exist_ok=True)
+
+            presets = {}
+            for filename in os.listdir(presets_dir):
+                if filename.endswith(".json"):
+                    filepath = os.path.join(presets_dir, filename)
+                    try:
+                        with open(filepath, "r", encoding="utf-8") as f:
+                            preset_data = json.load(f)
+                            # Use filename without extension as key
+                            key = filename[:-5]
+                            presets[key] = preset_data
+                    except (json.JSONDecodeError, IOError) as e:
+                        print(f"[Purz] Failed to load preset {filename}: {e}")
+
+            return web.json_response({"success": True, "presets": presets})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return web.json_response({"error": str(e)}, status=500)
+
+    @PromptServer.instance.routes.post("/purz/presets/save")
+    async def save_preset(request):
+        """
+        Save a custom preset to a JSON file.
+        """
+        try:
+            data = await request.json()
+            name = data.get("name", "").strip()
+            layers = data.get("layers", [])
+
+            if not name:
+                return web.json_response({"error": "Preset name is required"}, status=400)
+
+            if not layers:
+                return web.json_response({"error": "No layers to save"}, status=400)
+
+            # Create safe filename
+            safe_name = "".join(c for c in name.lower() if c.isalnum() or c in " _-")
+            safe_name = safe_name.replace(" ", "_")
+            if not safe_name:
+                safe_name = f"preset_{int(time.time())}"
+
+            presets_dir = _get_presets_dir()
+            os.makedirs(presets_dir, exist_ok=True)
+
+            preset_data = {
+                "name": name,
+                "category": "My Presets",
+                "layers": layers
+            }
+
+            filepath = os.path.join(presets_dir, f"{safe_name}.json")
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(preset_data, f, indent=2)
+
+            return web.json_response({
+                "success": True,
+                "key": safe_name,
+                "filename": f"{safe_name}.json"
+            })
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return web.json_response({"error": str(e)}, status=500)
+
+    @PromptServer.instance.routes.post("/purz/presets/delete")
+    async def delete_preset(request):
+        """
+        Delete a custom preset.
+        """
+        try:
+            data = await request.json()
+            key = data.get("key", "").strip()
+
+            if not key:
+                return web.json_response({"error": "Preset key is required"}, status=400)
+
+            presets_dir = _get_presets_dir()
+            filepath = os.path.join(presets_dir, f"{key}.json")
+
+            # Security: ensure path is within presets directory
+            filepath = os.path.abspath(filepath)
+            if not filepath.startswith(os.path.abspath(presets_dir)):
+                return web.json_response({"error": "Invalid preset key"}, status=400)
+
+            if not os.path.exists(filepath):
+                return web.json_response({"error": "Preset not found"}, status=404)
+
+            os.remove(filepath)
+
+            return web.json_response({"success": True})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return web.json_response({"error": str(e)}, status=500)
+
 
 # Node mappings for registration
 # Note: Only registering one node to avoid duplicate entries in search

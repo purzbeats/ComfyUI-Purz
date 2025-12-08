@@ -58,6 +58,89 @@
         { "name": "amount", "label": "Amount", "min": -1, "max": 2, "default": 0, "step": 0.01 }
       ]
     },
+    "lift": {
+      "name": "Lift",
+      "category": "Basic",
+      "shader": "basic/lift.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": -0.5, "max": 0.5, "default": 0, "step": 0.01 }
+      ]
+    },
+    "gain": {
+      "name": "Gain",
+      "category": "Basic",
+      "shader": "basic/gain.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0.2, "max": 3, "default": 1, "step": 0.05 }
+      ]
+    },
+    "offset": {
+      "name": "Offset",
+      "category": "Basic",
+      "shader": "basic/offset.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "red", "label": "Red", "min": -0.5, "max": 0.5, "default": 0, "step": 0.01 },
+        { "name": "green", "label": "Green", "min": -0.5, "max": 0.5, "default": 0, "step": 0.01 },
+        { "name": "blue", "label": "Blue", "min": -0.5, "max": 0.5, "default": 0, "step": 0.01 }
+      ]
+    },
+    "autoContrast": {
+      "name": "Auto Contrast",
+      "category": "Basic",
+      "shader": "basic/autoContrast.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.5, "step": 0.01 }
+      ]
+    },
+    "normalize": {
+      "name": "Normalize",
+      "category": "Basic",
+      "shader": "basic/normalize.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 1, "step": 0.01 }
+      ]
+    },
+    "equalize": {
+      "name": "Equalize",
+      "category": "Basic",
+      "shader": "basic/equalize.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.5, "step": 0.01 }
+      ]
+    },
+    "solarize": {
+      "name": "Solarize",
+      "category": "Basic",
+      "shader": "basic/solarize.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "threshold", "label": "Threshold", "min": 0, "max": 1, "default": 0.5, "step": 0.01 }
+      ]
+    },
+    "fade": {
+      "name": "Fade",
+      "category": "Basic",
+      "shader": "basic/fade.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.3, "step": 0.01 }
+      ]
+    },
+    "crossProcess": {
+      "name": "Cross Process",
+      "category": "Basic",
+      "shader": "basic/crossProcess.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.5, "step": 0.01 }
+      ]
+    },
     "hueShift": {
       "name": "Hue Shift",
       "category": "Color",
@@ -99,6 +182,137 @@
         { "name": "redShift", "label": "Red", "min": -1, "max": 1, "default": 0, "step": 0.01 },
         { "name": "greenShift", "label": "Green", "min": -1, "max": 1, "default": 0, "step": 0.01 },
         { "name": "blueShift", "label": "Blue", "min": -1, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "splitTone": {
+      "name": "Split Tone",
+      "category": "Color",
+      "shader": "color/splitTone.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "shadowHue", "label": "Shd Hue", "min": 0, "max": 1, "default": 0.6, "step": 0.01 },
+        { "name": "shadowSat", "label": "Shd Sat", "min": 0, "max": 1, "default": 0.3, "step": 0.01 },
+        { "name": "highlightHue", "label": "Hi Hue", "min": 0, "max": 1, "default": 0.1, "step": 0.01 },
+        { "name": "highlightSat", "label": "Hi Sat", "min": 0, "max": 1, "default": 0.3, "step": 0.01 },
+        { "name": "balance", "label": "Balance", "min": -1, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "colorBalance": {
+      "name": "Color Balance",
+      "category": "Color",
+      "shader": "color/colorBalance.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "shadowsCyan", "label": "Shd C/R", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "shadowsMagenta", "label": "Shd M/G", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "shadowsYellow", "label": "Shd Y/B", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "midsCyan", "label": "Mid C/R", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "midsMagenta", "label": "Mid M/G", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "midsYellow", "label": "Mid Y/B", "min": -1, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "selectiveColor": {
+      "name": "Selective Color",
+      "category": "Color",
+      "shader": "color/selectiveColor.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "reds", "label": "Reds", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "yellows", "label": "Yellows", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "greens", "label": "Greens", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "cyans", "label": "Cyans", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "blues", "label": "Blues", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "magentas", "label": "Magentas", "min": -1, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "hslAdjust": {
+      "name": "HSL Adjust",
+      "category": "Color",
+      "shader": "color/hslAdjust.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "hue", "label": "Hue", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "saturation", "label": "Sat", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "lightness", "label": "Light", "min": -1, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "gradientMap": {
+      "name": "Gradient Map",
+      "category": "Color",
+      "shader": "color/gradientMap.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "shadowR", "label": "Shd R", "min": 0, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "shadowG", "label": "Shd G", "min": 0, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "shadowB", "label": "Shd B", "min": 0, "max": 1, "default": 0.2, "step": 0.01 },
+        { "name": "midR", "label": "Mid R", "min": 0, "max": 1, "default": 0.5, "step": 0.01 },
+        { "name": "midG", "label": "Mid G", "min": 0, "max": 1, "default": 0.3, "step": 0.01 },
+        { "name": "midB", "label": "Mid B", "min": 0, "max": 1, "default": 0.4, "step": 0.01 },
+        { "name": "highlightR", "label": "Hi R", "min": 0, "max": 1, "default": 1, "step": 0.01 },
+        { "name": "highlightG", "label": "Hi G", "min": 0, "max": 1, "default": 0.9, "step": 0.01 },
+        { "name": "highlightB", "label": "Hi B", "min": 0, "max": 1, "default": 0.8, "step": 0.01 }
+      ]
+    },
+    "colorLookup": {
+      "name": "Color Lookup",
+      "category": "Color",
+      "shader": "color/colorLookup.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "intensity", "label": "Intensity", "min": 0, "max": 1, "default": 0.5, "step": 0.01 },
+        { "name": "warmth", "label": "Warmth", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "tealOrange", "label": "Teal/Orange", "min": -1, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "vibrancePro": {
+      "name": "Vibrance Pro",
+      "category": "Color",
+      "shader": "color/vibrancePro.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "vibrance", "label": "Vibrance", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "protectSkin", "label": "Protect Skin", "min": 0, "max": 1, "default": 0.5, "step": 0.01 },
+        { "name": "satBoost", "label": "Sat Boost", "min": 0, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "rgbCurves": {
+      "name": "RGB Curves",
+      "category": "Color",
+      "shader": "color/rgbCurves.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "redLift", "label": "R Lift", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "redGamma", "label": "R Gamma", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "redGain", "label": "R Gain", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "greenLift", "label": "G Lift", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "greenGamma", "label": "G Gamma", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "greenGain", "label": "G Gain", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "blueLift", "label": "B Lift", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "blueGamma", "label": "B Gamma", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "blueGain", "label": "B Gain", "min": -1, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "cmykAdjust": {
+      "name": "CMYK Adjust",
+      "category": "Color",
+      "shader": "color/cmykAdjust.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "cyan", "label": "Cyan", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "magenta", "label": "Magenta", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "yellow", "label": "Yellow", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "black", "label": "Black", "min": -1, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "colorHarmony": {
+      "name": "Color Harmony",
+      "category": "Color",
+      "shader": "color/colorHarmony.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "mode", "label": "Mode", "min": 0, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "strength", "label": "Strength", "min": 0, "max": 1, "default": 0.5, "step": 0.01 },
+        { "name": "hueShift", "label": "Hue Shift", "min": -1, "max": 1, "default": 0, "step": 0.01 }
       ]
     },
     "highlights": {
@@ -153,6 +367,115 @@
         { "name": "highlights", "label": "Highs", "min": -1, "max": 1, "default": 0, "step": 0.01 }
       ]
     },
+    "toneCurve": {
+      "name": "Tone Curve",
+      "category": "Tone",
+      "shader": "tone/toneCurve.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "contrast", "label": "Contrast", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "pivot", "label": "Pivot", "min": 0, "max": 1, "default": 0.5, "step": 0.01 }
+      ]
+    },
+    "hdrTone": {
+      "name": "HDR Tone",
+      "category": "Tone",
+      "shader": "tone/hdrTone.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "strength", "label": "Strength", "min": 0, "max": 1, "default": 0.5, "step": 0.01 },
+        { "name": "detail", "label": "Detail", "min": 0, "max": 1, "default": 0.5, "step": 0.01 }
+      ]
+    },
+    "shadowRecovery": {
+      "name": "Shadow Recovery",
+      "category": "Tone",
+      "shader": "tone/shadowRecovery.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.5, "step": 0.01 },
+        { "name": "range", "label": "Range", "min": 0, "max": 0.5, "default": 0.25, "step": 0.01 }
+      ]
+    },
+    "highlightRecovery": {
+      "name": "Highlight Recovery",
+      "category": "Tone",
+      "shader": "tone/highlightRecovery.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.5, "step": 0.01 },
+        { "name": "range", "label": "Range", "min": 0.5, "max": 1, "default": 0.75, "step": 0.01 }
+      ]
+    },
+    "midtoneContrast": {
+      "name": "Midtone Contrast",
+      "category": "Tone",
+      "shader": "tone/midtoneContrast.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "center", "label": "Center", "min": 0, "max": 1, "default": 0.5, "step": 0.01 },
+        { "name": "width", "label": "Width", "min": 0, "max": 1, "default": 0.5, "step": 0.01 }
+      ]
+    },
+    "luminosityMask": {
+      "name": "Luminosity Mask",
+      "category": "Tone",
+      "shader": "tone/luminosityMask.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "darks", "label": "Darks", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "mids", "label": "Mids", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "lights", "label": "Lights", "min": -1, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "zoneSystem": {
+      "name": "Zone System",
+      "category": "Tone",
+      "shader": "tone/zoneSystem.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "zone0", "label": "Zone 0", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "zone3", "label": "Zone III", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "zone5", "label": "Zone V", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "zone7", "label": "Zone VII", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "zone10", "label": "Zone X", "min": -1, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "dynamicRange": {
+      "name": "Dynamic Range",
+      "category": "Tone",
+      "shader": "tone/dynamicRange.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "compression", "label": "Compress", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "blackPoint", "label": "Black", "min": 0, "max": 0.3, "default": 0, "step": 0.01 },
+        { "name": "whitePoint", "label": "White", "min": 0.7, "max": 1, "default": 1, "step": 0.01 }
+      ]
+    },
+    "toneSplit": {
+      "name": "Tone Split",
+      "category": "Tone",
+      "shader": "tone/toneSplit.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "threshold", "label": "Threshold", "min": 0, "max": 1, "default": 0.5, "step": 0.01 },
+        { "name": "softness", "label": "Softness", "min": 0, "max": 1, "default": 0.2, "step": 0.01 },
+        { "name": "lowShift", "label": "Low Shift", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "highShift", "label": "High Shift", "min": -1, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "localContrast": {
+      "name": "Local Contrast",
+      "category": "Tone",
+      "shader": "tone/localContrast.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "amount", "label": "Amount", "min": -1, "max": 1, "default": 0, "step": 0.01 },
+        { "name": "radius", "label": "Radius", "min": 1, "max": 20, "default": 5, "step": 0.5 }
+      ]
+    },
     "blur": {
       "name": "Blur",
       "category": "Detail",
@@ -196,6 +519,117 @@
       "shader": "detail/dehaze.glsl",
       "params": [
         { "name": "amount", "label": "Amount", "min": -1, "max": 1, "default": 0, "step": 0.01 }
+      ]
+    },
+    "highPass": {
+      "name": "High Pass",
+      "category": "Detail",
+      "shader": "detail/highPass.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "radius", "label": "Radius", "min": 1, "max": 50, "default": 10, "step": 1 }
+      ]
+    },
+    "lowPass": {
+      "name": "Low Pass",
+      "category": "Detail",
+      "shader": "detail/lowPass.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "radius", "label": "Radius", "min": 1, "max": 50, "default": 10, "step": 1 }
+      ]
+    },
+    "bilateralFilter": {
+      "name": "Bilateral Filter",
+      "category": "Detail",
+      "shader": "detail/bilateralFilter.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "spatialSigma", "label": "Spatial", "min": 1, "max": 20, "default": 5, "step": 0.5 },
+        { "name": "rangeSigma", "label": "Range", "min": 0.01, "max": 0.5, "default": 0.1, "step": 0.01 }
+      ]
+    },
+    "surfaceBlur": {
+      "name": "Surface Blur",
+      "category": "Detail",
+      "shader": "detail/surfaceBlur.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "radius", "label": "Radius", "min": 1, "max": 20, "default": 5, "step": 0.5 },
+        { "name": "threshold", "label": "Threshold", "min": 0.01, "max": 0.5, "default": 0.15, "step": 0.01 }
+      ]
+    },
+    "smartSharpen": {
+      "name": "Smart Sharpen",
+      "category": "Detail",
+      "shader": "detail/smartSharpen.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 3, "default": 1, "step": 0.1 },
+        { "name": "radius", "label": "Radius", "min": 0.5, "max": 5, "default": 1, "step": 0.1 },
+        { "name": "threshold", "label": "Threshold", "min": 0, "max": 0.2, "default": 0.05, "step": 0.01 }
+      ]
+    },
+    "microContrast": {
+      "name": "Micro Contrast",
+      "category": "Detail",
+      "shader": "detail/microContrast.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 2, "default": 0.5, "step": 0.05 },
+        { "name": "radius", "label": "Radius", "min": 1, "max": 10, "default": 3, "step": 0.5 }
+      ]
+    },
+    "textureEnhance": {
+      "name": "Texture Enhance",
+      "category": "Detail",
+      "shader": "detail/textureEnhance.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "strength", "label": "Strength", "min": 0, "max": 2, "default": 1, "step": 0.05 },
+        { "name": "scale", "label": "Scale", "min": 1, "max": 20, "default": 5, "step": 0.5 }
+      ]
+    },
+    "noiseReduction": {
+      "name": "Noise Reduction",
+      "category": "Detail",
+      "shader": "detail/noiseReduction.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "strength", "label": "Strength", "min": 0, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "threshold", "label": "Threshold", "min": 0.01, "max": 0.3, "default": 0.1, "step": 0.01 }
+      ]
+    },
+    "detailExtract": {
+      "name": "Detail Extract",
+      "category": "Detail",
+      "shader": "detail/detailExtract.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "radius", "label": "Radius", "min": 1, "max": 30, "default": 10, "step": 1 },
+        { "name": "boost", "label": "Boost", "min": 0, "max": 3, "default": 1, "step": 0.1 },
+        { "name": "mode", "label": "Mode", "min": 0, "max": 1, "default": 0, "step": 1 }
+      ]
+    },
+    "frequencySeparation": {
+      "name": "Frequency Separation",
+      "category": "Detail",
+      "shader": "detail/frequencySeparation.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "radius", "label": "Radius", "min": 1, "max": 50, "default": 15, "step": 1 },
+        { "name": "output", "label": "Output", "min": 0, "max": 2, "default": 0, "step": 1 },
+        { "name": "highBoost", "label": "Hi Boost", "min": 0, "max": 2, "default": 1, "step": 0.1 }
       ]
     },
     "vignette": {
@@ -262,6 +696,121 @@
         { "name": "highlightB", "label": "Hi B", "min": 0, "max": 1, "default": 0.6, "step": 0.01 }
       ]
     },
+    "lightLeak": {
+      "name": "Light Leak",
+      "category": "Effects",
+      "shader": "effects/lightLeak.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "intensity", "label": "Intensity", "min": 0, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "position", "label": "Position", "min": 0, "max": 1, "default": 0.3, "step": 0.05 },
+        { "name": "color", "label": "Color", "min": -1, "max": 1, "default": 0.5, "step": 0.05 }
+      ]
+    },
+    "lensFlare": {
+      "name": "Lens Flare",
+      "category": "Effects",
+      "shader": "effects/lensFlare.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "intensity", "label": "Intensity", "min": 0, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "posX", "label": "X Position", "min": 0, "max": 1, "default": 0.7, "step": 0.05 },
+        { "name": "posY", "label": "Y Position", "min": 0, "max": 1, "default": 0.3, "step": 0.05 }
+      ]
+    },
+    "bokeh": {
+      "name": "Bokeh",
+      "category": "Effects",
+      "shader": "effects/bokeh.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "threshold", "label": "Threshold", "min": 0.5, "max": 1, "default": 0.8, "step": 0.05 },
+        { "name": "size", "label": "Size", "min": 1, "max": 20, "default": 8, "step": 1 },
+        { "name": "intensity", "label": "Intensity", "min": 0, "max": 2, "default": 1, "step": 0.1 }
+      ]
+    },
+    "filmBurn": {
+      "name": "Film Burn",
+      "category": "Effects",
+      "shader": "effects/filmBurn.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "intensity", "label": "Intensity", "min": 0, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "position", "label": "Position", "min": 0, "max": 1, "default": 0.2, "step": 0.05 },
+        { "name": "spread", "label": "Spread", "min": 0, "max": 1, "default": 0.5, "step": 0.05 }
+      ]
+    },
+    "scratch": {
+      "name": "Scratch",
+      "category": "Effects",
+      "shader": "effects/scratch.glsl",
+      "isCustom": true,
+      "needs": ["resolution", "seed"],
+      "params": [
+        { "name": "density", "label": "Density", "min": 0, "max": 1, "default": 0.3, "step": 0.05 },
+        { "name": "intensity", "label": "Intensity", "min": 0, "max": 1, "default": 0.5, "step": 0.05 }
+      ]
+    },
+    "dust": {
+      "name": "Dust",
+      "category": "Effects",
+      "shader": "effects/dust.glsl",
+      "isCustom": true,
+      "needs": ["resolution", "seed"],
+      "params": [
+        { "name": "density", "label": "Density", "min": 0, "max": 1, "default": 0.3, "step": 0.05 },
+        { "name": "size", "label": "Size", "min": 0.5, "max": 3, "default": 1, "step": 0.1 }
+      ]
+    },
+    "waterDroplets": {
+      "name": "Water Droplets",
+      "category": "Effects",
+      "shader": "effects/waterDroplets.glsl",
+      "isCustom": true,
+      "needs": ["resolution", "seed"],
+      "params": [
+        { "name": "density", "label": "Density", "min": 0, "max": 1, "default": 0.3, "step": 0.05 },
+        { "name": "size", "label": "Size", "min": 0.5, "max": 5, "default": 2, "step": 0.2 },
+        { "name": "distortion", "label": "Distortion", "min": 0, "max": 1, "default": 0.5, "step": 0.05 }
+      ]
+    },
+    "frostedGlass": {
+      "name": "Frosted Glass",
+      "category": "Effects",
+      "shader": "effects/frostedGlass.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "scale", "label": "Scale", "min": 1, "max": 50, "default": 20, "step": 1 }
+      ]
+    },
+    "heatDistortion": {
+      "name": "Heat Distortion",
+      "category": "Effects",
+      "shader": "effects/heatDistortion.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.3, "step": 0.05 },
+        { "name": "frequency", "label": "Frequency", "min": 1, "max": 20, "default": 10, "step": 1 },
+        { "name": "speed", "label": "Speed", "min": 0, "max": 10, "default": 0, "step": 0.5 }
+      ]
+    },
+    "crtScanlines": {
+      "name": "CRT Scanlines",
+      "category": "Effects",
+      "shader": "effects/crtScanlines.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "intensity", "label": "Intensity", "min": 0, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "density", "label": "Density", "min": 100, "max": 1000, "default": 400, "step": 50 },
+        { "name": "curvature", "label": "Curvature", "min": 0, "max": 1, "default": 0.3, "step": 0.05 }
+      ]
+    },
     "emboss": {
       "name": "Emboss",
       "category": "Artistic",
@@ -297,6 +846,116 @@
       "params": [
         { "name": "radius", "label": "Radius", "min": 1, "max": 10, "default": 3, "step": 0.5 },
         { "name": "levels", "label": "Levels", "min": 2, "max": 20, "default": 8, "step": 1 }
+      ]
+    },
+    "watercolor": {
+      "name": "Watercolor",
+      "category": "Artistic",
+      "shader": "artistic/watercolor.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "wetness", "label": "Wetness", "min": 0, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "granulation", "label": "Granulation", "min": 0, "max": 1, "default": 0.3, "step": 0.05 }
+      ]
+    },
+    "pencilSketch": {
+      "name": "Pencil Sketch",
+      "category": "Artistic",
+      "shader": "artistic/pencilSketch.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "intensity", "label": "Intensity", "min": 0, "max": 2, "default": 1, "step": 0.1 },
+        { "name": "paperTone", "label": "Paper Tone", "min": 0, "max": 1, "default": 0.95, "step": 0.05 }
+      ]
+    },
+    "charcoal": {
+      "name": "Charcoal",
+      "category": "Artistic",
+      "shader": "artistic/charcoal.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "intensity", "label": "Intensity", "min": 0, "max": 2, "default": 1, "step": 0.1 },
+        { "name": "smudge", "label": "Smudge", "min": 0, "max": 1, "default": 0.3, "step": 0.05 }
+      ]
+    },
+    "woodcut": {
+      "name": "Woodcut",
+      "category": "Artistic",
+      "shader": "artistic/woodcut.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "threshold", "label": "Threshold", "min": 0, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "lineWeight", "label": "Line Weight", "min": 0.5, "max": 3, "default": 1, "step": 0.1 }
+      ]
+    },
+    "linocut": {
+      "name": "Linocut",
+      "category": "Artistic",
+      "shader": "artistic/linocut.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "threshold", "label": "Threshold", "min": 0, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "carveWidth", "label": "Carve Width", "min": 1, "max": 5, "default": 2, "step": 0.5 }
+      ]
+    },
+    "popArt": {
+      "name": "Pop Art",
+      "category": "Artistic",
+      "shader": "artistic/popArt.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "colors", "label": "Colors", "min": 2, "max": 8, "default": 4, "step": 1 },
+        { "name": "dotSize", "label": "Dot Size", "min": 2, "max": 20, "default": 8, "step": 1 }
+      ]
+    },
+    "comicBook": {
+      "name": "Comic Book",
+      "category": "Artistic",
+      "shader": "artistic/comicBook.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "edgeThickness", "label": "Edge", "min": 1, "max": 5, "default": 2, "step": 0.5 },
+        { "name": "colorLevels", "label": "Colors", "min": 2, "max": 8, "default": 5, "step": 1 }
+      ]
+    },
+    "stainedGlass": {
+      "name": "Stained Glass",
+      "category": "Artistic",
+      "shader": "artistic/stainedGlass.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "cellSize", "label": "Cell Size", "min": 10, "max": 100, "default": 40, "step": 5 },
+        { "name": "lineWidth", "label": "Line Width", "min": 1, "max": 5, "default": 2, "step": 0.5 }
+      ]
+    },
+    "mosaic": {
+      "name": "Mosaic",
+      "category": "Artistic",
+      "shader": "artistic/mosaic.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "tileSize", "label": "Tile Size", "min": 5, "max": 50, "default": 15, "step": 1 },
+        { "name": "groutWidth", "label": "Grout", "min": 0, "max": 3, "default": 1, "step": 0.5 }
+      ]
+    },
+    "pointillism": {
+      "name": "Pointillism",
+      "category": "Artistic",
+      "shader": "artistic/pointillism.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "dotSize", "label": "Dot Size", "min": 2, "max": 15, "default": 5, "step": 1 },
+        { "name": "density", "label": "Density", "min": 0.5, "max": 1, "default": 0.8, "step": 0.05 }
       ]
     },
     "pixelate": {
@@ -335,6 +994,109 @@
         { "name": "size", "label": "Size", "min": 2, "max": 20, "default": 8, "step": 1 }
       ]
     },
+    "mirror": {
+      "name": "Mirror",
+      "category": "Creative",
+      "shader": "creative/mirror.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "axis", "label": "Axis", "min": 0, "max": 1, "default": 0, "step": 1 },
+        { "name": "position", "label": "Position", "min": 0, "max": 1, "default": 0.5, "step": 0.05 }
+      ]
+    },
+    "kaleidoscope": {
+      "name": "Kaleidoscope",
+      "category": "Creative",
+      "shader": "creative/kaleidoscope.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "segments", "label": "Segments", "min": 2, "max": 16, "default": 6, "step": 1 },
+        { "name": "rotation", "label": "Rotation", "min": 0, "max": 1, "default": 0, "step": 0.05 }
+      ]
+    },
+    "tunnel": {
+      "name": "Tunnel",
+      "category": "Creative",
+      "shader": "creative/tunnel.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "zoom", "label": "Zoom", "min": 0, "max": 5, "default": 1, "step": 0.1 },
+        { "name": "twist", "label": "Twist", "min": 0, "max": 2, "default": 0, "step": 0.1 }
+      ]
+    },
+    "ripple": {
+      "name": "Ripple",
+      "category": "Creative",
+      "shader": "creative/ripple.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amplitude", "label": "Amplitude", "min": 0, "max": 0.1, "default": 0.03, "step": 0.005 },
+        { "name": "frequency", "label": "Frequency", "min": 5, "max": 50, "default": 20, "step": 1 },
+        { "name": "phase", "label": "Phase", "min": 0, "max": 10, "default": 0, "step": 0.1 }
+      ]
+    },
+    "waveDistortion": {
+      "name": "Wave Distortion",
+      "category": "Creative",
+      "shader": "creative/waveDistortion.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amplitudeX", "label": "Amp X", "min": 0, "max": 0.1, "default": 0.02, "step": 0.005 },
+        { "name": "amplitudeY", "label": "Amp Y", "min": 0, "max": 0.1, "default": 0.02, "step": 0.005 },
+        { "name": "frequencyX", "label": "Freq X", "min": 1, "max": 20, "default": 5, "step": 1 },
+        { "name": "frequencyY", "label": "Freq Y", "min": 1, "max": 20, "default": 5, "step": 1 }
+      ]
+    },
+    "twirl": {
+      "name": "Twirl",
+      "category": "Creative",
+      "shader": "creative/twirl.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "angle", "label": "Angle", "min": -3, "max": 3, "default": 1, "step": 0.1 },
+        { "name": "radius", "label": "Radius", "min": 0.1, "max": 1, "default": 0.5, "step": 0.05 }
+      ]
+    },
+    "spherize": {
+      "name": "Spherize",
+      "category": "Creative",
+      "shader": "creative/spherize.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": -1, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "radius", "label": "Radius", "min": 0.1, "max": 1, "default": 0.5, "step": 0.05 }
+      ]
+    },
+    "pinch": {
+      "name": "Pinch",
+      "category": "Creative",
+      "shader": "creative/pinch.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": -1, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "radius", "label": "Radius", "min": 0.1, "max": 1, "default": 0.5, "step": 0.05 }
+      ]
+    },
+    "stretch": {
+      "name": "Stretch",
+      "category": "Creative",
+      "shader": "creative/stretch.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "stretchX", "label": "Stretch X", "min": -1, "max": 1, "default": 0, "step": 0.05 },
+        { "name": "stretchY", "label": "Stretch Y", "min": -1, "max": 1, "default": 0, "step": 0.05 }
+      ]
+    },
+    "fisheye": {
+      "name": "Fisheye",
+      "category": "Creative",
+      "shader": "creative/fisheye.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 2, "default": 0.5, "step": 0.05 },
+        { "name": "zoom", "label": "Zoom", "min": 0.5, "max": 2, "default": 1, "step": 0.05 }
+      ]
+    },
     "lensDistort": {
       "name": "Lens Distortion",
       "category": "Lens",
@@ -360,6 +1122,112 @@
       "shader": "lens/radialBlur.glsl",
       "params": [
         { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.3, "step": 0.01 }
+      ]
+    },
+    "depthOfField": {
+      "name": "Depth of Field",
+      "category": "Lens",
+      "shader": "lens/depthOfField.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "focusPoint", "label": "Focus", "min": 0, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "focalRange", "label": "Range", "min": 0, "max": 0.5, "default": 0.1, "step": 0.02 },
+        { "name": "blurAmount", "label": "Blur", "min": 0, "max": 20, "default": 10, "step": 1 }
+      ]
+    },
+    "focusStack": {
+      "name": "Focus Stack",
+      "category": "Lens",
+      "shader": "lens/focusStack.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "sharpness", "label": "Sharpness", "min": 0, "max": 2, "default": 1, "step": 0.1 },
+        { "name": "depthAware", "label": "Depth Aware", "min": 0, "max": 1, "default": 0.5, "step": 0.1 }
+      ]
+    },
+    "miniature": {
+      "name": "Miniature",
+      "category": "Lens",
+      "shader": "lens/miniature.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "focusY", "label": "Focus Y", "min": 0, "max": 1, "default": 0.5, "step": 0.05 },
+        { "name": "focusWidth", "label": "Width", "min": 0.05, "max": 0.5, "default": 0.15, "step": 0.02 },
+        { "name": "blur", "label": "Blur", "min": 0, "max": 30, "default": 15, "step": 1 }
+      ]
+    },
+    "anamorphic": {
+      "name": "Anamorphic",
+      "category": "Lens",
+      "shader": "lens/anamorphic.glsl",
+      "isCustom": true,
+      "needs": ["resolution"],
+      "params": [
+        { "name": "squeeze", "label": "Squeeze", "min": 0.5, "max": 2, "default": 1.33, "step": 0.05 },
+        { "name": "flareStrength", "label": "Flare", "min": 0, "max": 1, "default": 0.3, "step": 0.05 },
+        { "name": "aberration", "label": "CA", "min": 0, "max": 0.01, "default": 0.003, "step": 0.001 }
+      ]
+    },
+    "barrelDistort": {
+      "name": "Barrel Distortion",
+      "category": "Lens",
+      "shader": "lens/barrelDistort.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.3, "step": 0.05 }
+      ]
+    },
+    "pincushion": {
+      "name": "Pincushion",
+      "category": "Lens",
+      "shader": "lens/pincushion.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.3, "step": 0.05 }
+      ]
+    },
+    "mustacheDistort": {
+      "name": "Mustache Distortion",
+      "category": "Lens",
+      "shader": "lens/mustacheDistort.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "barrel", "label": "Barrel", "min": 0, "max": 1, "default": 0.2, "step": 0.05 },
+        { "name": "pincushion", "label": "Pincushion", "min": 0, "max": 1, "default": 0.1, "step": 0.05 }
+      ]
+    },
+    "caRedCyan": {
+      "name": "CA Red/Cyan",
+      "category": "Lens",
+      "shader": "lens/caRedCyan.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 0.02, "default": 0.005, "step": 0.001 },
+        { "name": "radial", "label": "Radial", "min": 0, "max": 1, "default": 1, "step": 1 }
+      ]
+    },
+    "caBlueYellow": {
+      "name": "CA Blue/Yellow",
+      "category": "Lens",
+      "shader": "lens/caBlueYellow.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 0.02, "default": 0.005, "step": 0.001 },
+        { "name": "radial", "label": "Radial", "min": 0, "max": 1, "default": 1, "step": 1 }
+      ]
+    },
+    "lensVignette": {
+      "name": "Lens Vignette",
+      "category": "Lens",
+      "shader": "lens/lensVignette.glsl",
+      "isCustom": true,
+      "params": [
+        { "name": "amount", "label": "Amount", "min": 0, "max": 2, "default": 0.5, "step": 0.05 },
+        { "name": "falloff", "label": "Falloff", "min": 1, "max": 4, "default": 2, "step": 0.1 },
+        { "name": "roundness", "label": "Round", "min": 0.5, "max": 2, "default": 1, "step": 0.1 }
       ]
     }
   },

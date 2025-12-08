@@ -1970,6 +1970,182 @@ const PRESETS = {
         layers: [
             { effect: "sketch", params: { amount: 4.0 }, opacity: 1.0 }
         ]
+    },
+
+    // --- CINEMATIC (New) ---
+    "cinematic_blockbuster": {
+        name: "Blockbuster Cinema",
+        category: "Cinematic",
+        layers: [
+            { effect: "contrast", params: { amount: 0.2 }, opacity: 1.0 },
+            { effect: "splitTone", params: { shadowHue: 0.55, shadowSat: 0.25, highlightHue: 0.08, highlightSat: 0.2, balance: 0.1 }, opacity: 0.8 },
+            { effect: "anamorphic", params: { squeeze: 1.0, flareStrength: 0.2, aberration: 0.002 }, opacity: 0.6 },
+            { effect: "lensVignette", params: { amount: 0.6, falloff: 2.5, roundness: 1.2 }, opacity: 0.7 }
+        ]
+    },
+    "cinematic_noir_modern": {
+        name: "Modern Noir",
+        category: "Cinematic",
+        layers: [
+            { effect: "desaturate", params: { amount: 0.85 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: 0.35 }, opacity: 1.0 },
+            { effect: "toneCurve", params: { contrast: 0.2, pivot: 0.4 }, opacity: 0.8 },
+            { effect: "grain", params: { amount: 0.06, size: 80 }, opacity: 0.5 },
+            { effect: "lensVignette", params: { amount: 0.8, falloff: 2, roundness: 1 }, opacity: 0.8 }
+        ]
+    },
+    "cinematic_scifi": {
+        name: "Sci-Fi Blue",
+        category: "Cinematic",
+        layers: [
+            { effect: "temperature", params: { amount: -0.2 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: 0.25 }, opacity: 1.0 },
+            { effect: "colorLookup", params: { intensity: 0.5, warmth: -0.3, tealOrange: 0.4 }, opacity: 0.7 },
+            { effect: "chromatic", params: { amount: 0.15 }, opacity: 0.4 },
+            { effect: "crtScanlines", params: { intensity: 0.15, density: 300, curvature: 0.1 }, opacity: 0.3 }
+        ]
+    },
+    "cinematic_horror": {
+        name: "Horror Atmosphere",
+        category: "Cinematic",
+        layers: [
+            { effect: "exposure", params: { amount: -0.15 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: 0.3 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: -0.4 }, opacity: 1.0 },
+            { effect: "gradientMap", params: { shadowR: 0.1, shadowG: 0.05, shadowB: 0.1, midR: 0.3, midG: 0.25, midB: 0.3, highlightR: 0.9, highlightG: 0.85, highlightB: 0.8 }, opacity: 0.4 },
+            { effect: "lensVignette", params: { amount: 1.2, falloff: 1.8, roundness: 1 }, opacity: 0.9 }
+        ]
+    },
+
+    // --- VINTAGE (New) ---
+    "vintage_kodachrome": {
+        name: "Kodachrome Style",
+        category: "Vintage",
+        layers: [
+            { effect: "contrast", params: { amount: 0.15 }, opacity: 1.0 },
+            { effect: "vibrancePro", params: { vibrance: 0.3, protectSkin: 0.6, satBoost: 0.15 }, opacity: 0.9 },
+            { effect: "rgbCurves", params: { redLift: 0.02, redGamma: 0, redGain: 0.05, greenLift: 0, greenGamma: 0, greenGain: 0, blueLift: -0.03, blueGamma: 0, blueGain: -0.05 }, opacity: 0.7 },
+            { effect: "grain", params: { amount: 0.05, size: 100 }, opacity: 0.5 }
+        ]
+    },
+    "vintage_polaroid": {
+        name: "Polaroid Memories",
+        category: "Vintage",
+        layers: [
+            { effect: "fade", params: { amount: 0.2 }, opacity: 1.0 },
+            { effect: "temperature", params: { amount: 0.1 }, opacity: 0.8 },
+            { effect: "contrast", params: { amount: -0.1 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: -0.15 }, opacity: 1.0 },
+            { effect: "vignette", params: { amount: 0.3, softness: 0.5 }, opacity: 0.6 },
+            { effect: "grain", params: { amount: 0.08, size: 120 }, opacity: 0.6 }
+        ]
+    },
+    "vintage_70s": {
+        name: "70s Warm",
+        category: "Vintage",
+        layers: [
+            { effect: "crossProcess", params: { amount: 0.4 }, opacity: 0.6 },
+            { effect: "temperature", params: { amount: 0.15 }, opacity: 1.0 },
+            { effect: "fade", params: { amount: 0.15 }, opacity: 1.0 },
+            { effect: "contrast", params: { amount: -0.05 }, opacity: 1.0 },
+            { effect: "lightLeak", params: { intensity: 0.3, position: 0.2, color: 0.7 }, opacity: 0.5 },
+            { effect: "grain", params: { amount: 0.1, size: 80 }, opacity: 0.6 }
+        ]
+    },
+    "vintage_daguerreotype": {
+        name: "Daguerreotype",
+        category: "Vintage",
+        layers: [
+            { effect: "desaturate", params: { amount: 1.0 }, opacity: 1.0 },
+            { effect: "sepia", params: { amount: 0.4 }, opacity: 0.7 },
+            { effect: "contrast", params: { amount: 0.1 }, opacity: 1.0 },
+            { effect: "lensVignette", params: { amount: 0.9, falloff: 1.5, roundness: 0.8 }, opacity: 0.8 },
+            { effect: "scratch", params: { density: 0.2, intensity: 0.3 }, opacity: 0.5 },
+            { effect: "dust", params: { density: 0.2, size: 1.2 }, opacity: 0.4 }
+        ]
+    },
+
+    // --- STYLIZED (New) ---
+    "stylized_neon_nights": {
+        name: "Neon Nights",
+        category: "Stylized",
+        layers: [
+            { effect: "contrast", params: { amount: 0.4 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: 0.5 }, opacity: 1.0 },
+            { effect: "splitTone", params: { shadowHue: 0.75, shadowSat: 0.4, highlightHue: 0.95, highlightSat: 0.3, balance: -0.2 }, opacity: 0.7 },
+            { effect: "chromatic", params: { amount: 0.3 }, opacity: 0.5 },
+            { effect: "vignette", params: { amount: 0.4, softness: 0.3 }, opacity: 0.7 }
+        ]
+    },
+    "stylized_anime": {
+        name: "Anime Style",
+        category: "Stylized",
+        layers: [
+            { effect: "contrast", params: { amount: 0.2 }, opacity: 1.0 },
+            { effect: "saturation", params: { amount: 0.3 }, opacity: 1.0 },
+            { effect: "posterize", params: { levels: 12 }, opacity: 0.4 },
+            { effect: "edgeDetect", params: { amount: 0.8 }, opacity: 0.15 }
+        ]
+    },
+    "stylized_watercolor_dream": {
+        name: "Watercolor Dream",
+        category: "Stylized",
+        layers: [
+            { effect: "watercolor", params: { wetness: 0.6, granulation: 0.4 }, opacity: 0.8 },
+            { effect: "saturation", params: { amount: -0.1 }, opacity: 1.0 },
+            { effect: "highlights", params: { amount: 0.15 }, opacity: 1.0 }
+        ]
+    },
+    "stylized_comic": {
+        name: "Comic Panel",
+        category: "Stylized",
+        layers: [
+            { effect: "comicBook", params: { edgeThickness: 2.5, colorLevels: 6 }, opacity: 0.9 },
+            { effect: "contrast", params: { amount: 0.15 }, opacity: 1.0 }
+        ]
+    },
+
+    // --- PHOTO ENHANCEMENT (New) ---
+    "enhance_portrait_pro": {
+        name: "Portrait Pro",
+        category: "Enhancement",
+        layers: [
+            { effect: "surfaceBlur", params: { radius: 3, threshold: 0.12 }, opacity: 0.4 },
+            { effect: "smartSharpen", params: { amount: 0.8, radius: 1, threshold: 0.05 }, opacity: 0.6 },
+            { effect: "vibrancePro", params: { vibrance: 0.15, protectSkin: 0.8, satBoost: 0 }, opacity: 1.0 },
+            { effect: "highlights", params: { amount: 0.1 }, opacity: 1.0 },
+            { effect: "shadows", params: { amount: 0.05 }, opacity: 1.0 }
+        ]
+    },
+    "enhance_landscape_hdr": {
+        name: "Landscape HDR",
+        category: "Enhancement",
+        layers: [
+            { effect: "hdrTone", params: { strength: 0.6, detail: 0.5 }, opacity: 0.8 },
+            { effect: "localContrast", params: { amount: 0.3, radius: 8 }, opacity: 0.7 },
+            { effect: "vibrancePro", params: { vibrance: 0.25, protectSkin: 0.3, satBoost: 0.1 }, opacity: 1.0 },
+            { effect: "dehaze", params: { amount: 0.2 }, opacity: 0.7 }
+        ]
+    },
+    "enhance_detail_pop": {
+        name: "Detail Pop",
+        category: "Enhancement",
+        layers: [
+            { effect: "microContrast", params: { amount: 0.8, radius: 4 }, opacity: 0.7 },
+            { effect: "textureEnhance", params: { strength: 0.6, scale: 8 }, opacity: 0.5 },
+            { effect: "clarity", params: { amount: 0.4 }, opacity: 0.8 },
+            { effect: "contrast", params: { amount: 0.1 }, opacity: 1.0 }
+        ]
+    },
+    "enhance_auto_fix": {
+        name: "Auto Enhance",
+        category: "Enhancement",
+        layers: [
+            { effect: "autoContrast", params: { amount: 0.6 }, opacity: 0.8 },
+            { effect: "shadowRecovery", params: { amount: 0.4, range: 0.3 }, opacity: 0.7 },
+            { effect: "highlightRecovery", params: { amount: 0.3, range: 0.8 }, opacity: 0.7 },
+            { effect: "vibrancePro", params: { vibrance: 0.1, protectSkin: 0.5, satBoost: 0 }, opacity: 1.0 }
+        ]
     }
 };
 
@@ -2059,6 +2235,30 @@ function createStyles() {
             align-items: center;
             gap: 4px;
             margin-bottom: 4px;
+        }
+        .purz-layer-drag-handle {
+            cursor: grab;
+            color: #666;
+            padding: 0 2px;
+            font-size: 10px;
+            user-select: none;
+            flex-shrink: 0;
+        }
+        .purz-layer-drag-handle:hover {
+            color: #999;
+        }
+        .purz-layer-drag-handle:active {
+            cursor: grabbing;
+        }
+        .purz-layer.dragging {
+            opacity: 0.5;
+            border: 1px dashed #4a9eff;
+        }
+        .purz-layer.drag-over {
+            border-top: 2px solid #4a9eff;
+        }
+        .purz-layer.drag-over-bottom {
+            border-bottom: 2px solid #4a9eff;
         }
         .purz-layer-toggle {
             width: 14px;
@@ -2632,6 +2832,31 @@ class InteractiveFilterWidget {
         fitHeight(this.node, this);
     }
 
+    _reorderLayer(draggedId, targetId, insertBefore) {
+        const draggedIdx = this.layers.findIndex(l => l.id === draggedId);
+        const targetIdx = this.layers.findIndex(l => l.id === targetId);
+
+        if (draggedIdx === -1 || targetIdx === -1) return;
+
+        // Remove dragged layer
+        const [draggedLayer] = this.layers.splice(draggedIdx, 1);
+
+        // Calculate new target index (adjust if dragged was before target)
+        let newIdx = targetIdx;
+        if (draggedIdx < targetIdx) {
+            newIdx--; // Target shifted down after removal
+        }
+        if (!insertBefore) {
+            newIdx++; // Insert after target
+        }
+
+        // Insert at new position
+        this.layers.splice(newIdx, 0, draggedLayer);
+
+        this._renderLayers();
+        this._updatePreview();
+    }
+
     async _loadPreset(presetKey) {
         // Check built-in presets first, then custom presets
         let preset = PRESETS[presetKey];
@@ -2870,9 +3095,89 @@ class InteractiveFilterWidget {
         el.className = `purz-layer ${layer.enabled ? "" : "disabled"}`;
         el.dataset.layerId = layer.id;
 
+        // Drag and drop handlers (drag only enabled when initiated from handle)
+        el.addEventListener("dragstart", (e) => {
+            if (!this._dragFromHandle) {
+                e.preventDefault();
+                return;
+            }
+            el.classList.add("dragging");
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", layer.id.toString());
+            this._draggedLayerId = layer.id;
+        });
+
+        el.addEventListener("dragend", () => {
+            el.classList.remove("dragging");
+            this._draggedLayerId = null;
+            this._dragFromHandle = false;
+            // Clean up all drag-over states
+            this.layersList.querySelectorAll(".purz-layer").forEach(l => {
+                l.classList.remove("drag-over", "drag-over-bottom");
+            });
+        });
+
+        el.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            if (this._draggedLayerId === layer.id) return;
+
+            const rect = el.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+
+            // Clean up previous states on this element
+            el.classList.remove("drag-over", "drag-over-bottom");
+
+            // Show indicator above or below based on mouse position
+            if (e.clientY < midY) {
+                el.classList.add("drag-over");
+            } else {
+                el.classList.add("drag-over-bottom");
+            }
+        });
+
+        el.addEventListener("dragleave", () => {
+            el.classList.remove("drag-over", "drag-over-bottom");
+        });
+
+        el.addEventListener("drop", (e) => {
+            e.preventDefault();
+            el.classList.remove("drag-over", "drag-over-bottom");
+
+            const draggedId = parseInt(e.dataTransfer.getData("text/plain"));
+            if (draggedId === layer.id) return;
+
+            const rect = el.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            const insertBefore = e.clientY < midY;
+
+            this._reorderLayer(draggedId, layer.id, insertBefore);
+        });
+
         // Header row
         const header = document.createElement("div");
         header.className = "purz-layer-header";
+
+        // Drag handle - only this element initiates drag
+        const dragHandle = document.createElement("span");
+        dragHandle.className = "purz-layer-drag-handle";
+        dragHandle.draggable = true;
+        dragHandle.innerHTML = "⋮⋮";
+        dragHandle.title = "Drag to reorder";
+        dragHandle.addEventListener("mousedown", () => {
+            this._dragFromHandle = true;
+            el.draggable = true;
+        });
+        dragHandle.addEventListener("dragstart", (e) => {
+            // Let the event bubble up to the layer element
+            this._dragFromHandle = true;
+            el.draggable = true;
+        });
+        dragHandle.addEventListener("mouseup", () => {
+            this._dragFromHandle = false;
+            el.draggable = false;
+        });
+        header.appendChild(dragHandle);
 
         const toggle = document.createElement("input");
         toggle.type = "checkbox";
@@ -2912,7 +3217,7 @@ class InteractiveFilterWidget {
             for (const { key, effect } of effects) {
                 const opt = document.createElement("option");
                 opt.value = key;
-                opt.textContent = effect.name + (effect.isCustom ? " *" : "");
+                opt.textContent = effect.name;
                 opt.selected = key === layer.effect;
                 optgroup.appendChild(opt);
             }
@@ -3124,6 +3429,22 @@ class InteractiveFilterWidget {
             console.error("[Purz] Failed to create WebGL context for batch processing");
             this._setStatus("WebGL error", "error");
             return;
+        }
+
+        // Pre-compile any custom shaders needed by the layers
+        for (const layer of this.layers) {
+            if (layer.enabled && CustomShaderLoader.isCustomEffect(layer.effect)) {
+                const effect = CustomShaderLoader.customEffects[layer.effect];
+                if (effect && effect.shader) {
+                    batchEngine.loadCustomShader(layer.effect, effect.shader);
+                } else {
+                    // Shader not loaded yet, fetch it
+                    const loadedEffect = await CustomShaderLoader.getEffect(layer.effect);
+                    if (loadedEffect && loadedEffect.shader) {
+                        batchEngine.loadCustomShader(layer.effect, loadedEffect.shader);
+                    }
+                }
+            }
         }
 
         const renderedFrames = [];

@@ -26,24 +26,25 @@ A comprehensive node pack for ComfyUI that provides powerful image effects, patt
 
 ### 🎛️ Interactive Image Filter
 A powerful real-time image filter system with WebGL preview:
-- **42 Filter Effects** across 8 categories
+- **120+ Filter Effects** across 8 categories
 - **Layer-Based System** - Stack multiple effects with individual opacity
+- **Drag & Drop Reordering** - Easily rearrange effect layers
 - **Real-Time Preview** - See changes instantly via WebGL shaders
 - **Non-Destructive** - Adjust filters without re-running the workflow
 - **Pipeline Output** - Filtered result outputs to the workflow for further processing
 - **Video Batch Support** - Process entire video sequences with playback preview
-- **25 Built-in Presets** - Professional presets for Film, Portrait, Landscape, B&W, Mood, and Creative styles
+- **40+ Built-in Presets** - Professional presets for Film, Portrait, Landscape, B&W, Mood, Creative, Cinematic, Vintage, Stylized, and Enhancement styles
 - **Custom Presets** - Save and load your own effect combinations
 
 **Filter Categories:**
-- **Basic**: Desaturate, Brightness, Contrast, Exposure, Gamma, Vibrance, Saturation
-- **Color**: Hue Shift, Temperature, Tint, Colorize, Channel Mixer
-- **Tone**: Highlights, Shadows, Whites, Blacks, Levels, Curves
-- **Detail**: Blur, Sharpen, Unsharp Mask, Clarity, Dehaze
-- **Effects**: Vignette, Grain, Posterize, Threshold, Invert, Sepia, Duotone
-- **Artistic**: Emboss, Edge Detect, Sketch, Oil Paint
-- **Creative**: Pixelate, Chromatic Aberration, Glitch, Halftone
-- **Lens**: Lens Distortion, Tilt Shift, Radial Blur
+- **Basic** (16): Desaturate, Brightness, Contrast, Exposure, Gamma, Vibrance, Saturation, Lift, Gain, Offset, Auto Contrast, Normalize, Equalize, Solarize, Fade, Cross Process
+- **Color** (15): Hue Shift, Temperature, Tint, Colorize, Channel Mixer, Split Tone, Color Balance, Selective Color, HSL Adjust, Gradient Map, Color Lookup, Vibrance Pro, RGB Curves, CMYK Adjust, Color Harmony
+- **Tone** (16): Highlights, Shadows, Whites, Blacks, Levels, Curves, Tone Curve, HDR Tone, Shadow Recovery, Highlight Recovery, Midtone Contrast, Luminosity Mask, Zone System, Dynamic Range, Tone Split, Local Contrast
+- **Detail** (15): Blur, Sharpen, Unsharp Mask, Clarity, Dehaze, High Pass, Low Pass, Bilateral Filter, Surface Blur, Smart Sharpen, Micro Contrast, Texture Enhance, Noise Reduction, Detail Extract, Frequency Separation
+- **Effects** (17): Vignette, Grain, Posterize, Threshold, Invert, Sepia, Duotone, Light Leak, Lens Flare, Bokeh, Film Burn, Scratch, Dust, Water Droplets, Frosted Glass, Heat Distortion, CRT Scanlines
+- **Artistic** (14): Emboss, Edge Detect, Sketch, Oil Paint, Watercolor, Pencil Sketch, Charcoal, Woodcut, Linocut, Pop Art, Comic Book, Stained Glass, Mosaic, Pointillism
+- **Creative** (14): Pixelate, Chromatic Aberration, Glitch, Halftone, Mirror, Kaleidoscope, Tunnel, Ripple, Wave Distortion, Twirl, Spherize, Pinch, Stretch, Fisheye
+- **Lens** (13): Lens Distortion, Tilt Shift, Radial Blur, Depth of Field, Focus Stack, Miniature, Anamorphic, Barrel Distortion, Pincushion, Mustache Distortion, CA Red/Cyan, CA Blue/Yellow, Lens Vignette
 
 ### 📸 Image Effects
 Transform your images with professional-grade effects:
@@ -191,9 +192,10 @@ If you encounter any issues or have questions, please open an issue on the GitHu
 Future plans for ComfyUI-Purz:
 
 - [x] **Custom WebGL Effects** - Break out Interactive Image Filter effects into separate shader files, allowing users to create and share their own custom WebGL effects
+- [x] **More Effects** - Expanded to 120+ effects with 80 new shader effects in v1.5.0
+- [x] **More Presets** - Added 16 new presets (Cinematic, Vintage, Stylized, Enhancement)
+- [x] **Layer Reordering** - Drag and drop to re-arrange effect layers
 - [ ] **Mask Support** - Apply filter effects selectively using masks
-- [ ] **More Effects** - Expand the library of available WebGL filter effects
-- [ ] **Layer Reordering** - Drag and drop to re-arrange effect layers
 
 ### Creating Custom Effects
 
@@ -211,16 +213,29 @@ You can create your own WebGL filter effects:
      ]
    }
    ```
-4. Restart ComfyUI - your effect will appear in the dropdown with a `*` suffix
+4. Restart ComfyUI - your effect will appear in the dropdown
 
 ## 📋 Changelog
+
+### v1.5.0 (2025-12-08)
+- **80 New Shader Effects** - Massive expansion to 120+ total effects
+  - Basic: Lift, Gain, Offset, Auto Contrast, Normalize, Equalize, Solarize, Fade, Cross Process
+  - Color: Split Tone, Color Balance, Selective Color, HSL Adjust, Gradient Map, Color Lookup, Vibrance Pro, RGB Curves, CMYK Adjust, Color Harmony
+  - Tone: Tone Curve, HDR Tone, Shadow Recovery, Highlight Recovery, Midtone Contrast, Luminosity Mask, Zone System, Dynamic Range, Tone Split, Local Contrast
+  - Detail: High Pass, Low Pass, Bilateral Filter, Surface Blur, Smart Sharpen, Micro Contrast, Texture Enhance, Noise Reduction, Detail Extract, Frequency Separation
+  - Effects: Light Leak, Lens Flare, Bokeh, Film Burn, Scratch, Dust, Water Droplets, Frosted Glass, Heat Distortion, CRT Scanlines
+  - Artistic: Watercolor, Pencil Sketch, Charcoal, Woodcut, Linocut, Pop Art, Comic Book, Stained Glass, Mosaic, Pointillism
+  - Creative: Mirror, Kaleidoscope, Tunnel, Ripple, Wave Distortion, Twirl, Spherize, Pinch, Stretch, Fisheye
+  - Lens: Depth of Field, Focus Stack, Miniature, Anamorphic, Barrel Distortion, Pincushion, Mustache Distortion, CA Red/Cyan, CA Blue/Yellow, Lens Vignette
+- **16 New Presets** - Cinematic (Blockbuster, Noir, Sci-Fi, Horror), Vintage (Kodachrome, Polaroid, 70s, Daguerreotype), Stylized (Neon Nights, Anime, Watercolor Dream, Comic), Enhancement (Portrait Pro, Landscape HDR, Detail Pop, Auto Fix)
+- **Layer Reordering** - Drag and drop layers with visual indicators
+- **Fixed** - Custom shaders now work correctly in video batch processing
 
 ### v1.4.0 (2025-12-08)
 - **NEW: Custom WebGL Effects** - Create and share your own filter effects
   - 42 built-in shaders extracted to `shaders/` directory for reference
   - Custom shaders go in `shaders/custom/` with optional .json metadata
   - Template provided at `shaders/custom/_template.glsl`
-  - Custom effects appear in dropdown with " *" suffix
   - Backend API endpoints for dynamic shader loading
 
 ### v1.3.0 (2025-12-08)

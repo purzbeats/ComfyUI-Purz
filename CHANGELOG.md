@@ -4,6 +4,35 @@ All notable changes to ComfyUI-Purz are documented here. This includes every cha
 
 ## [Unreleased]
 
+## [1.5.0] - 2025-12-08
+
+### Added
+- **80 New Shader Effects** across all 8 categories:
+  - **Basic** (9 new): Lift, Gain, Offset, Auto Contrast, Normalize, Equalize, Solarize, Fade, Cross Process
+  - **Color** (10 new): Split Tone, Color Balance, Selective Color, HSL Adjust, Gradient Map, Color Lookup, Vibrance Pro, RGB Curves, CMYK Adjust, Color Harmony
+  - **Tone** (10 new): Tone Curve, HDR Tone, Shadow Recovery, Highlight Recovery, Midtone Contrast, Luminosity Mask, Zone System, Dynamic Range, Tone Split, Local Contrast
+  - **Detail** (10 new): High Pass, Low Pass, Bilateral Filter, Surface Blur, Smart Sharpen, Micro Contrast, Texture Enhance, Noise Reduction, Detail Extract, Frequency Separation
+  - **Effects** (10 new): Light Leak, Lens Flare, Bokeh, Film Burn, Scratch, Dust, Water Droplets, Frosted Glass, Heat Distortion, CRT Scanlines
+  - **Artistic** (10 new): Watercolor, Pencil Sketch, Charcoal, Woodcut, Linocut, Pop Art, Comic Book, Stained Glass, Mosaic, Pointillism
+  - **Creative** (10 new): Mirror, Kaleidoscope, Tunnel, Ripple, Wave Distortion, Twirl, Spherize, Pinch, Stretch, Fisheye
+  - **Lens** (10 new): Depth of Field, Focus Stack, Miniature, Anamorphic, Barrel Distortion, Pincushion, Mustache Distortion, CA Red/Cyan, CA Blue/Yellow, Lens Vignette
+- **16 New Presets** across 4 categories:
+  - Cinematic: Blockbuster, Noir Modern, Sci-Fi, Horror
+  - Vintage: Kodachrome, Polaroid, 70s, Daguerreotype
+  - Stylized: Neon Nights, Anime, Watercolor Dream, Comic
+  - Enhancement: Portrait Pro, Landscape HDR, Detail Pop, Auto Fix
+- Layer reordering via drag and drop in Interactive Image Filter
+- Drag handle (⋮⋮) on each effect layer - drag only initiates from handle
+- Visual drop indicators (blue border) showing insert position
+
+### Changed
+- Removed asterisk (*) suffix from custom shader names in dropdown - cleaner UI
+
+### Fixed
+- Custom shaders now work correctly in video batch processing
+- Batch engine now pre-compiles custom shaders before processing frames
+- Previously custom effects would render black frames in batch output
+
 ## [1.4.0] - 2025-12-08
 
 ### Added

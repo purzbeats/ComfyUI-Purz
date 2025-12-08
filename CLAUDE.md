@@ -315,10 +315,21 @@ PURZ_BATCH_READY = {}        # Flag set True when all chunks received
 
 ## External Shader System
 
+### Effect Categories (120+ total effects)
+- **Basic** (16): Desaturate, Brightness, Contrast, Exposure, Gamma, Vibrance, Saturation, Lift, Gain, Offset, Auto Contrast, Normalize, Equalize, Solarize, Fade, Cross Process
+- **Color** (15): Hue Shift, Temperature, Tint, Colorize, Channel Mixer, Split Tone, Color Balance, Selective Color, HSL Adjust, Gradient Map, Color Lookup, Vibrance Pro, RGB Curves, CMYK Adjust, Color Harmony
+- **Tone** (16): Highlights, Shadows, Whites, Blacks, Levels, Curves, Tone Curve, HDR Tone, Shadow Recovery, Highlight Recovery, Midtone Contrast, Luminosity Mask, Zone System, Dynamic Range, Tone Split, Local Contrast
+- **Detail** (15): Blur, Sharpen, Unsharp Mask, Clarity, Dehaze, High Pass, Low Pass, Bilateral Filter, Surface Blur, Smart Sharpen, Micro Contrast, Texture Enhance, Noise Reduction, Detail Extract, Frequency Separation
+- **Effects** (17): Vignette, Grain, Posterize, Threshold, Invert, Sepia, Duotone, Light Leak, Lens Flare, Bokeh, Film Burn, Scratch, Dust, Water Droplets, Frosted Glass, Heat Distortion, CRT Scanlines
+- **Artistic** (14): Emboss, Edge Detect, Sketch, Oil Paint, Watercolor, Pencil Sketch, Charcoal, Woodcut, Linocut, Pop Art, Comic Book, Stained Glass, Mosaic, Pointillism
+- **Creative** (14): Pixelate, Chromatic Aberration, Glitch, Halftone, Mirror, Kaleidoscope, Tunnel, Ripple, Wave Distortion, Twirl, Spherize, Pinch, Stretch, Fisheye
+- **Lens** (13): Lens Distortion, Tilt Shift, Radial Blur, Depth of Field, Focus Stack, Miniature, Anamorphic, Barrel Distortion, Pincushion, Mustache Distortion, CA Red/Cyan, CA Blue/Yellow, Lens Vignette
+
 ### Architecture
 The Interactive Filter uses a hybrid shader approach:
-- **Built-in shaders**: 42 effects defined inline in `EFFECT_SHADERS` object for reliability (no network latency)
-- **Custom shaders**: Loaded dynamically from `shaders/custom/` directory via REST API
+- **Built-in shaders**: ~40 core effects defined inline in `EFFECT_SHADERS` object for reliability (no network latency)
+- **External shaders**: 80+ additional effects loaded from `shaders/` directory via `effects.json` manifest (marked with `isCustom: true`)
+- **User custom shaders**: Created in `shaders/custom/` directory, auto-discovered at startup
 
 ### Directory Structure
 ```
@@ -365,10 +376,60 @@ this.filterEngine.loadCustomShader(effectKey, shaderSource);
      ]
    }
    ```
-4. Restart ComfyUI - effect appears with " *" suffix in dropdown
+4. Restart ComfyUI - effect appears in the dropdown under "Custom" category
 
 ### Key Implementation Patterns
 - **Async layer operations**: `_addLayer()` and `_loadPreset()` are async to support shader loading
 - **Effect definition abstraction**: `_getEffectDef(key)` checks both `EFFECTS` and `CustomShaderLoader.customEffects`
 - **On-demand compilation**: Custom shaders are compiled only when first used
 - **Cached shader source**: `CustomShaderLoader.shaderCache` prevents redundant fetches
+- **isCustom flag**: Effects in `effects.json` must have `"isCustom": true` to be loaded by `CustomShaderLoader`
+
+### Batch Processing with Custom Shaders
+When processing video batches, a separate `FilterEngine` is created for batch processing. This engine only compiles built-in shaders by default. Custom shaders must be pre-compiled before batch processing:
+
+```javascript
+// In _processBatchWebGL() before processing frames:
+for (const layer of this.layers) {
+    if (layer.enabled && CustomShaderLoader.isCustomEffect(layer.effect)) {
+        const effect = await CustomShaderLoader.getEffect(layer.effect);
+        if (effect && effect.shader) {
+            batchEngine.loadCustomShader(layer.effect, effect.shader);
+        }
+    }
+}
+```
+
+Without this pre-compilation, custom effects render black frames because `batchEngine.programs[effectKey]` returns undefined.
+
+## Preset System
+
+### Built-in Presets (40+)
+Presets are stored as JSON files in the `presets/` directory and organized by category:
+- **Film**: Classic, Vintage Film, Cinematic, Noir, etc.
+- **Portrait**: Soft Skin, Warm Portrait, Cool Portrait, etc.
+- **Landscape**: Vivid Nature, Golden Hour, Misty Morning, etc.
+- **Black & White**: High Contrast B&W, Film Noir B&W, Soft B&W, etc.
+- **Mood**: Dreamy, Moody Blue, Warm Sunset, etc.
+- **Creative**: Cross Process, Duotone Pop, Retro Gaming, etc.
+- **Cinematic** (v1.5.0): Blockbuster, Noir Modern, Sci-Fi, Horror
+- **Vintage** (v1.5.0): Kodachrome, Polaroid, 70s, Daguerreotype
+- **Stylized** (v1.5.0): Neon Nights, Anime, Watercolor Dream, Comic
+- **Enhancement** (v1.5.0): Portrait Pro, Landscape HDR, Detail Pop, Auto Fix
+
+### Preset File Format
+```json
+{
+  "name": "Preset Name",
+  "category": "Category",
+  "layers": [
+    { "effect": "effectKey", "opacity": 100, "enabled": true, "params": { "param1": 0.5 } }
+  ]
+}
+```
+
+### Layer Reordering (v1.5.0)
+Effect layers can be reordered via drag and drop:
+- Drag handle (⋮⋮) on each layer initiates drag
+- Visual drop indicators (blue border) show insertion point
+- Layers are applied in order from top to bottom

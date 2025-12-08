@@ -6,6 +6,24 @@ A comprehensive node pack for ComfyUI that provides powerful image effects, patt
 
 ## 🚀 Features
 
+### 🎛️ Interactive Image Filter (NEW!)
+A powerful real-time image filter system with WebGL preview:
+- **42 Filter Effects** across 8 categories
+- **Layer-Based System** - Stack multiple effects with individual opacity
+- **Real-Time Preview** - See changes instantly via WebGL shaders
+- **Non-Destructive** - Adjust filters without re-running the workflow
+- **Pipeline Output** - Filtered result outputs to the workflow for further processing
+
+**Filter Categories:**
+- **Basic**: Desaturate, Brightness, Contrast, Exposure, Gamma, Vibrance, Saturation
+- **Color**: Hue Shift, Temperature, Tint, Colorize, Channel Mixer
+- **Tone**: Highlights, Shadows, Whites, Blacks, Levels, Curves
+- **Detail**: Blur, Sharpen, Unsharp Mask, Clarity, Dehaze
+- **Effects**: Vignette, Grain, Posterize, Threshold, Invert, Sepia, Duotone
+- **Artistic**: Emboss, Edge Detect, Sketch, Oil Paint
+- **Creative**: Pixelate, Chromatic Aberration, Glitch, Halftone
+- **Lens**: Lens Distortion, Tilt Shift, Radial Blur
+
 ### 📸 Image Effects
 Transform your images with professional-grade effects:
 - **Black & White Conversion** - High-quality grayscale conversion using luminance weighting
@@ -53,6 +71,9 @@ Bring your patterns to life with mathematical precision:
 4. Restart ComfyUI
 
 ## 🎯 Node Categories
+
+### Purz/Interactive
+- **Interactive Filter** - Real-time layer-based image filter with 42 effects and WebGL preview
 
 ### Purz/Image/Color
 - **Image to Black & White** - Convert color images to grayscale
@@ -133,3 +154,17 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 ## 📞 Support
 
 If you encounter any issues or have questions, please open an issue on the GitHub repository.
+
+## 📋 Changelog
+
+### v1.1.0 (2025-12-07)
+- **NEW: Interactive Image Filter** - A powerful layer-based real-time filter system
+  - 42 filter effects across 8 categories (Basic, Color, Tone, Detail, Effects, Artistic, Creative, Lens)
+  - Real-time WebGL preview - see changes instantly without re-running workflow
+  - Layer system with per-layer opacity control
+  - Stack multiple effects for complex adjustments
+  - Filtered output pipes directly into workflow for further processing
+  - Save button to export filtered images directly to output folder
+
+### v1.0.1
+- Initial release with image effects, pattern generation, and animated patterns

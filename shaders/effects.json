@@ -648,7 +648,8 @@
       "needs": ["seed"],
       "params": [
         { "name": "amount", "label": "Amount", "min": 0, "max": 0.5, "default": 0.1, "step": 0.01 },
-        { "name": "size", "label": "Size", "min": 1, "max": 500, "default": 100, "step": 10 }
+        { "name": "size", "label": "Size", "min": 1, "max": 500, "default": 100, "step": 10 },
+        { "name": "animate", "label": "Animate", "type": "checkbox", "default": false }
       ]
     },
     "posterize": {

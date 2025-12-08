@@ -42,15 +42,16 @@ ComfyUI-Purz/
 │   └── *.json                    # Built-in and user-saved presets
 ├── pyproject.toml                # Project metadata and version
 ├── requirements.txt              # Python dependencies
-├── CLAUDE.md                     # This file
+├── CLAUDE.md                     # This file - development guidance for AI assistants
 ├── CHANGELOG.md                  # All changes (including ephemeral)
 ├── README.md                     # User-facing documentation
-└── plan.md                       # Development roadmap
+├── plan.md                       # Development roadmap
+└── painpoints.md                 # Documentation gaps and development challenges
 ```
 
 ### Node Registration System
 - `__init__.py` exports `NODE_CLASS_MAPPINGS` and `NODE_DISPLAY_NAME_MAPPINGS` from `nodes.py`
-- `nodes.py` aggregates node mappings from three source modules
+- `nodes.py` aggregates node mappings from four source modules (`image_effects`, `pattern_generators`, `animated_patterns`, `interactive_filters`)
 - Each source module defines its own `*_NODE_CLASS_MAPPINGS` and `*_NODE_DISPLAY_NAME_MAPPINGS` dicts
 
 ### Source Modules
@@ -117,27 +118,108 @@ This node pack has no automated test suite. To test changes:
 4. Update CHANGELOG.md immediately with every change (even experimental ones)
 5. When ready to release, update version in `pyproject.toml`, move CHANGELOG entries, and update README.md
 
+## Official ComfyUI Documentation
+
+**Reference**: https://docs.comfy.org (fetch llms.txt for full navigation)
+
+Key documentation pages for custom node development:
+- **JavaScript Overview**: `/custom-nodes/js/javascript_overview` - Extension registration basics
+- **JavaScript Hooks**: `/custom-nodes/js/javascript_hooks` - Lifecycle hooks reference
+- **JavaScript Objects**: `/custom-nodes/js/javascript_objects_and_hijacking` - Core objects and APIs
+- **V3 Migration Guide**: `/custom-nodes/v3_migration` - Backend schema changes (Python only)
+- **JavaScript Examples**: `/custom-nodes/js/javascript_examples` - Code samples
+
 ## Frontend JavaScript Extensions
 
-To add custom UI widgets/interactions:
+### Official Extension Framework
+**Docs**: https://docs.comfy.org/custom-nodes/js/javascript_overview
 
-1. Create `web/js/` directory in the node pack
-2. Export `WEB_DIRECTORY = "./web/js"` in `__init__.py`
-3. Register extensions using:
+1. Export `WEB_DIRECTORY = "./web"` in `__init__.py`
+2. Create `.js` files in that directory (auto-loaded by browser)
+3. Register extensions:
 ```javascript
 import { app } from "../../scripts/app.js";
 app.registerExtension({
     name: "purz.extensionname",
-    async setup() { /* initialization */ },
-    async beforeRegisterNodeDef(nodeType, nodeData, app) { /* modify node behavior */ }
+    async setup() { /* runs at end of startup, good for event listeners */ },
+    async beforeRegisterNodeDef(nodeType, nodeData, app) { /* modify node type before registration */ },
+    async nodeCreated(node) { /* runs when individual node instance created */ },
+    async init() { /* runs on page load, before node registration */ }
 });
 ```
 
-Backend-to-frontend messaging:
-- Backend: `PromptServer.instance.send_sync("event.type", {"data": value})`
-- Frontend: `app.api.addEventListener("event.type", handler)` receives in `event.detail`
+### Available Hooks (Execution Order)
+**Docs**: https://docs.comfy.org/custom-nodes/js/javascript_hooks
 
-For Nodes 2.0 (Vue-based): v3 schema is in development, will allow Vue widgets without JS. Current approach works with both legacy and Nodes 2.0.
+**Web page load**: `init` → `addCustomNodeDefs` → `getCustomWidgets` → `beforeRegisterNodeDef` (per node type) → `afterConfigureGraph` → `setup`
+
+**Loading workflow**: `beforeConfigureGraph` → `beforeRegisterNodeDef` (optional) → `nodeCreated` (per instance) → `afterConfigureGraph`
+
+**Adding new node**: `nodeCreated`
+
+### Core Objects Reference
+**Docs**: https://docs.comfy.org/custom-nodes/js/javascript_objects_and_hijacking
+
+**app object** (import from `../../scripts/app.js`):
+- `app.canvas` - LGraphCanvas (UI)
+- `app.graph` - LGraph (node/link state)
+- `app.graph._nodes_by_id[id]` - Get node by ID (may need string or int)
+- `app.runningNodeId` - Currently executing node
+- `app.registerExtension()` - Register extension
+- `app.queuePrompt()` - Submit to execution queue
+- `app.graphToPrompt()` - Convert graph to prompt
+
+**ComfyNode properties**:
+- `id`, `type`, `title`, `pos`, `size`
+- `inputs`, `outputs`, `widgets`
+- `mode` - 0=normal, 2=muted, 4=bypassed
+- `comfyClass` - The node class name
+
+**Widget types**: BOOLEAN, INT, FLOAT, STRING, COMBO, IMAGEUPLOAD
+
+### Backend-to-Frontend Messaging
+```python
+# Backend (Python)
+PromptServer.instance.send_sync("event.type", {"data": value})
+```
+```javascript
+// Frontend (JavaScript)
+import { api } from "../../scripts/api.js";
+api.addEventListener("execution_start", (event) => { /* event.detail contains data */ });
+```
+
+### Deprecation Warning
+**From official docs**: "Hijacking/monkey-patching functions on `app` or prototypes is deprecated and subject to change."
+
+However, for complex widgets we still need patterns like overriding `onExecuted` because no official hooks exist for all use cases. See `painpoints.md` for details.
+
+## Nodes 2.0 and V3 Schema
+
+### Current Status
+- **Nodes 2.0** is the new Vue-based rendering system (toggle in ComfyUI menu)
+- **V3 Schema** is documented for **backend only** (Python node definitions)
+- **No frontend migration guide exists** - our DOM widget approach may or may not work
+
+### V3 Backend Changes (for future reference)
+**Docs**: https://docs.comfy.org/custom-nodes/v3_migration
+
+| Aspect | V1 (Current) | V3 |
+|--------|--------------|-----|
+| Base class | Generic | `io.ComfyNode` |
+| Schema | `INPUT_TYPES()` | `define_schema()` returning `Schema` |
+| Returns | `RETURN_TYPES` tuple | `outputs` in Schema |
+| Cache control | `IS_CHANGED()` | `fingerprint_inputs()` |
+| Execution | Custom function name | `execute()` method |
+
+**We currently use V1 patterns.** V3 migration is optional but may become required.
+
+### What We Don't Know About Nodes 2.0
+- Does `addDOMWidget()` work?
+- Do our event propagation hacks work?
+- Is there a Vue-native widget system?
+- When will legacy patterns break?
+
+See `painpoints.md` for full discussion of documentation gaps.
 
 ## Node Naming Convention
 - Class names: PascalCase descriptive names (e.g., `CheckerboardPattern`)
@@ -522,3 +604,79 @@ Effect layers can be reordered via drag and drop:
 - Drag handle (⋮⋮) on each layer initiates drag
 - Visual drop indicators (blue border) show insertion point
 - Layers are applied in order from top to bottom
+
+### Checkbox Parameters
+Effects can define checkbox (boolean) parameters:
+```javascript
+// In effect definition
+params: [
+    { name: "amount", label: "Amount", min: 0, max: 1, default: 0.5, step: 0.01 },
+    { name: "animate", label: "Animate", type: "checkbox", default: false }
+]
+```
+
+The UI builder in `_createLayerElement()` detects `type: "checkbox"` and renders a checkbox instead of a slider. Checkbox params are stored as boolean in `layer.params`.
+
+### Animated Effects (Preview Animation Loop)
+For effects that should animate in the preview (like animated grain):
+
+```javascript
+// State variables in constructor
+this.animationFrameId = null;
+this.animationTime = 0;
+
+// Check if any layer needs animation
+_hasAnimatedLayers() {
+    return this.layers.some(l => l.enabled && l.params.animate);
+}
+
+// Start/stop loop based on animate flags
+_updateAnimationLoop() {
+    const needsAnimation = this._hasAnimatedLayers();
+    if (needsAnimation && !this.animationFrameId) {
+        this._startAnimationLoop();
+    } else if (!needsAnimation && this.animationFrameId) {
+        this._stopAnimationLoop();
+    }
+}
+
+// Animation loop updates seeds and re-renders
+_startAnimationLoop() {
+    const animate = (timestamp) => {
+        if (!this._hasAnimatedLayers()) {
+            this._stopAnimationLoop();
+            return;
+        }
+        // Update seeds for animated layers
+        for (const layer of this.layers) {
+            if (layer.enabled && layer.params.animate && layer.params.seed !== undefined) {
+                layer.params.seed += (timestamp - this.animationTime) * 0.1;
+            }
+        }
+        this.animationTime = timestamp;
+        this.engine.render(this.layers);
+        this.animationFrameId = requestAnimationFrame(animate);
+    };
+    this.animationFrameId = requestAnimationFrame(animate);
+}
+```
+
+For batch processing, seeds are varied per frame:
+```javascript
+// Store original seeds before batch loop
+const originalSeeds = {};
+for (const layer of this.layers) {
+    if (layer.params.seed !== undefined) {
+        originalSeeds[layer.id] = layer.params.seed;
+    }
+}
+
+// In batch loop, update seeds for animated layers
+for (const layer of this.layers) {
+    if (layer.enabled && layer.params.animate && originalSeeds[layer.id] !== undefined) {
+        layer.params.seed = originalSeeds[layer.id] + frameIndex * 100;
+    }
+}
+
+// Restore after batch completes
+```

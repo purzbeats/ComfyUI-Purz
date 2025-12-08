@@ -1216,7 +1216,8 @@ const EFFECTS = {
         needsSeed: true,
         params: [
             { name: "amount", label: "Amount", min: 0, max: 0.5, default: 0.1, step: 0.01 },
-            { name: "size", label: "Size", min: 1, max: 500, default: 100, step: 10 }
+            { name: "size", label: "Size", min: 1, max: 500, default: 100, step: 10 },
+            { name: "animate", label: "Animate", type: "checkbox", default: false }
         ]
     },
     posterize: {
@@ -2323,6 +2324,13 @@ function createStyles() {
             text-align: right;
             flex-shrink: 0;
         }
+        .purz-control-checkbox {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            accent-color: #4a9eff;
+            margin-left: auto;
+        }
         .purz-actions {
             display: flex;
             gap: 6px;
@@ -2572,6 +2580,10 @@ class InteractiveFilterWidget {
 
         // Custom shaders loaded state
         this.customShadersLoaded = false;
+
+        // Animation loop state (for animated grain preview)
+        this.animationFrameId = null;
+        this.animationTime = 0;
 
         createStyles();
         this._buildUI();
@@ -3270,6 +3282,35 @@ class InteractiveFilterWidget {
             label.textContent = param.label;
             row.appendChild(label);
 
+            // Handle checkbox type params
+            if (param.type === "checkbox") {
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.className = "purz-control-checkbox";
+                checkbox.checked = layer.params[param.name] ?? param.default ?? false;
+
+                // Prevent node dragging when interacting with checkbox
+                checkbox.addEventListener("mousedown", (e) => {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                }, true);
+                checkbox.addEventListener("pointerdown", (e) => {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                }, true);
+
+                checkbox.addEventListener("change", () => {
+                    layer.params[param.name] = checkbox.checked;
+                    this._updatePreview();
+                    this._syncToBackend();
+                });
+
+                row.appendChild(checkbox);
+                controls.appendChild(row);
+                continue;
+            }
+
+            // Default: slider type
             const slider = document.createElement("input");
             slider.type = "range";
             slider.className = "purz-control-slider";
@@ -3369,6 +3410,65 @@ class InteractiveFilterWidget {
         // Debounce the backend sync (full-res render is expensive)
         if (this._syncTimeout) clearTimeout(this._syncTimeout);
         this._syncTimeout = setTimeout(() => this._syncLayersToBackend(), 300);
+
+        // Check if we need to start/stop the animation loop
+        this._updateAnimationLoop();
+    }
+
+    _hasAnimatedLayers() {
+        // Check if any enabled layer has animate: true
+        return this.layers.some(l => l.enabled && l.params.animate);
+    }
+
+    _updateAnimationLoop() {
+        const needsAnimation = this._hasAnimatedLayers();
+
+        if (needsAnimation && !this.animationFrameId) {
+            // Start animation loop
+            this._startAnimationLoop();
+        } else if (!needsAnimation && this.animationFrameId) {
+            // Stop animation loop
+            this._stopAnimationLoop();
+        }
+    }
+
+    _startAnimationLoop() {
+        if (this.animationFrameId) return;
+
+        const animate = (timestamp) => {
+            if (!this._hasAnimatedLayers()) {
+                this._stopAnimationLoop();
+                return;
+            }
+
+            // Update seeds for animated layers (change every ~33ms for ~30fps grain animation)
+            const timeDelta = timestamp - (this.animationTime || timestamp);
+            this.animationTime = timestamp;
+
+            // Update animated layer seeds
+            for (const layer of this.layers) {
+                if (layer.enabled && layer.params.animate && layer.params.seed !== undefined) {
+                    // Increment seed to create animated noise effect
+                    layer.params.seed += timeDelta * 0.1;
+                }
+            }
+
+            // Re-render with updated seeds
+            if (this.engine && this.engine.imageLoaded) {
+                this.engine.render(this.layers);
+            }
+
+            this.animationFrameId = requestAnimationFrame(animate);
+        };
+
+        this.animationFrameId = requestAnimationFrame(animate);
+    }
+
+    _stopAnimationLoop() {
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
     }
 
     _syncLayersToBackend() {
@@ -3449,6 +3549,14 @@ class InteractiveFilterWidget {
 
         const renderedFrames = [];
 
+        // Store original seeds for layers that may animate
+        const originalSeeds = {};
+        for (const layer of this.layers) {
+            if (layer.params.seed !== undefined) {
+                originalSeeds[layer.id] = layer.params.seed;
+            }
+        }
+
         for (let i = 0; i < batchSize; i++) {
             const imgInfo = this.batchImages[i];
             const params = new URLSearchParams({
@@ -3466,6 +3574,14 @@ class InteractiveFilterWidget {
                 batchCanvas.width = img.naturalWidth;
                 batchCanvas.height = img.naturalHeight;
 
+                // Update seeds for animated effects (e.g., grain with animate: true)
+                for (const layer of this.layers) {
+                    if (layer.enabled && layer.params.animate && originalSeeds[layer.id] !== undefined) {
+                        // Vary seed per frame for animated grain effect
+                        layer.params.seed = originalSeeds[layer.id] + i * 100;
+                    }
+                }
+
                 // Process through WebGL
                 batchEngine.loadImage(img);
                 batchEngine.render(this.layers);
@@ -3480,6 +3596,13 @@ class InteractiveFilterWidget {
                 }
             } catch (err) {
                 console.error(`[Purz] Failed to process frame ${i}:`, err);
+            }
+        }
+
+        // Restore original seeds
+        for (const layer of this.layers) {
+            if (originalSeeds[layer.id] !== undefined) {
+                layer.params.seed = originalSeeds[layer.id];
             }
         }
 
@@ -3635,6 +3758,7 @@ class InteractiveFilterWidget {
     }
 
     _reset() {
+        this._stopAnimationLoop();
         this.layers = [];
         this._renderLayers();
         this._updatePreview();

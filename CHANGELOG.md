@@ -4,6 +4,27 @@ All notable changes to ComfyUI-Purz are documented here. This includes every cha
 
 ## [Unreleased]
 
+## [1.6.0] - 2025-12-08
+
+### Added
+- **V3 Schema Support** - All nodes now have V3 versions for modern ComfyUI with improved UI:
+  - `image_effects_v3.py` - V3 versions of all image effect nodes
+  - `pattern_generators_v3.py` - V3 versions of all pattern generator nodes
+  - `animated_patterns_v3.py` - V3 versions of all animated pattern nodes
+  - `interactive_filters_v3.py` - V3 version of Interactive Image Filter node
+  - Uses `io.ComfyNode`, `io.Schema`, `io.NodeOutput` patterns
+  - Uses typed inputs: `io.Int.Input()`, `io.Float.Input()`, `io.Boolean.Input()`, `io.Combo.Input()`
+  - **Slider widgets** via `display_mode=io.NumberDisplay.slider` for all numeric inputs
+  - Proper `ComfyExtension` classes with `comfy_entrypoint()` async functions
+- **Unified V3 entrypoint** in `__init__.py` - ComfyUI auto-detects V3 API availability and uses appropriate system
+- **Animated Grain** toggle for Grain effect - when enabled, grain pattern animates in real-time preview and changes per frame during video batch processing, creating a film-like animated static look; when disabled (default), grain stays locked/stationary
+- **Live animation preview** - effects with `animate: true` now animate continuously in the preview using requestAnimationFrame
+- **Checkbox parameter type** support in Interactive Filter - effects can now define checkbox params via `type: "checkbox"`
+
+### Changed
+- `__init__.py` now auto-detects V3 API and only exports `comfy_entrypoint` (V3) or falls back to `NODE_CLASS_MAPPINGS` (V1)
+- V3 nodes are immutable - refactored to use local variables instead of instance attributes
+
 ### Fixed
 - Single image processing now applies filters correctly (was broken by batch processing feature)
 - Changed batch processing condition from `batch_size > 1` to `batch_size >= 1` to include single images

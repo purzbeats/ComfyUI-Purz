@@ -4,7 +4,17 @@ A comprehensive node pack for ComfyUI that provides powerful image effects, patt
 
 <img width="3573" height="2177" alt="Example Workflow" src="https://github.com/user-attachments/assets/b9c4c61d-f5f1-49fb-84a9-f47b2f2c9e4a" />
 
-## 🎬 Video Batch Processing (NEW in v1.3.0!)
+## 🎚️ V3 Schema with Slider UI (NEW in v1.6.0!)
+
+All nodes now support ComfyUI's V3 schema with **slider widgets** for numeric inputs - providing a much better user experience than the default number pickers with increment buttons.
+
+**V3 Features:**
+- **Slider Controls** - All numeric parameters use intuitive slider widgets
+- **Auto-Detection** - Automatically uses V3 when available, falls back to V1 for older ComfyUI versions
+- **Animated Grain** - New checkbox toggle for the Grain effect to enable animated film grain
+- **Live Animation Preview** - Effects with animation capabilities preview in real-time
+
+## 🎬 Video Batch Processing
 
 **Apply real-time WebGL filters to entire video sequences!** The Interactive Image Filter now fully supports batch processing, making it perfect for video workflows:
 
@@ -216,6 +226,15 @@ You can create your own WebGL filter effects:
 4. Restart ComfyUI - your effect will appear in the dropdown
 
 ## 📋 Changelog
+
+### v1.6.0 (2025-12-08)
+- **V3 Schema Support** - All nodes now use ComfyUI V3 schema with slider widgets for better UX
+  - Slider controls for all numeric inputs (brightness, contrast, angles, sizes, etc.)
+  - Auto-detects V3 API availability, falls back to V1 for older ComfyUI
+  - New V3 files: `image_effects_v3.py`, `pattern_generators_v3.py`, `animated_patterns_v3.py`, `interactive_filters_v3.py`
+- **Animated Grain** - New checkbox toggle to enable animated film grain effect
+- **Live Animation Preview** - Effects with animation now preview continuously in real-time
+- **Fixed** - Single image processing now works correctly
 
 ### v1.5.0 (2025-12-08)
 - **80 New Shader Effects** - Massive expansion to 120+ total effects

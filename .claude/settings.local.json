@@ -4,7 +4,11 @@
       "Bash(chmod:*)",
       "Bash(rm:*)",
       "Bash(mkdir:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "WebFetch(domain:docs.comfy.org)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)"
     ],
     "deny": []
   }

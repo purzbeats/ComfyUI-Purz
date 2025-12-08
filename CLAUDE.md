@@ -258,3 +258,57 @@ nodeType.prototype.onExecuted = function(message) {
     }
 };
 ```
+
+## Planning & Roadmap
+
+Development plans are tracked in `plan.md` at the project root. Keep `plan.md` and the Roadmap section in `README.md` synchronized when making updates to either.
+
+## Documentation Requirements
+
+### Changelog Management
+- **CHANGELOG.md**: Track EVERY SINGLE CHANGE here, even ephemeral ones that may break things. Use Keep a Changelog format with [Unreleased] section at top.
+- **README.md**: Update the Changelog section for version releases only (user-facing summary)
+- When making any code change, add an entry to CHANGELOG.md immediately
+
+### Version Updates
+When releasing a new version:
+1. Update `pyproject.toml` version
+2. Move [Unreleased] items in CHANGELOG.md to new version section
+3. Add summary to README.md Changelog section
+4. Update any relevant feature documentation in README.md
+
+## Video Batch Processing Architecture
+
+### Backend-Frontend Synchronization
+The Interactive Filter supports video batch processing with this flow:
+
+1. **Backend signals waiting**: When `process()` is called with filters active, backend:
+   - Sets `PURZ_BATCH_PENDING[node_id] = batch_size`
+   - Sets `PURZ_BATCH_READY[node_id] = False`
+   - Sends WebSocket event `purz.batch_pending` via `PromptServer.instance.send_sync()`
+   - Enters polling loop waiting for `PURZ_BATCH_READY[node_id]` to become True
+
+2. **Frontend processes frames**: Upon receiving event or via polling fallback:
+   - Processes all frames through WebGL shaders
+   - Uploads results in chunks (10 frames per request) to avoid size limits
+   - Final chunk sets `is_final: true` which triggers `PURZ_BATCH_READY[node_id] = True`
+
+3. **Backend continues**: Polling loop exits, retrieves rendered frames, outputs to workflow
+
+### Key Implementation Details
+- **Chunked uploads**: Required because aiohttp has ~1MB default request size limit. 96 frames of base64 PNG easily exceeds this.
+- **Node ID type mismatch**: `app.graph._nodes_by_id` may use string or int keys. Always try both:
+  ```javascript
+  let node = app.graph._nodes_by_id[node_id];
+  if (!node) node = app.graph._nodes_by_id[parseInt(node_id)];
+  ```
+- **Polling fallback**: WebSocket events may not arrive reliably. `onExecuted` includes 500ms delayed poll to `/purz/interactive/batch_pending/{node_id}` as backup.
+- **Skip waiting when no filters**: If no filter layers are active, backend returns input directly without waiting for frontend.
+
+### Global State Dictionaries
+```python
+PURZ_FILTER_LAYERS = {}      # Filter layer config per node
+PURZ_RENDERED_IMAGES = {}    # Rendered frames from frontend
+PURZ_BATCH_PENDING = {}      # Number of frames backend is waiting for
+PURZ_BATCH_READY = {}        # Flag set True when all chunks received
+```

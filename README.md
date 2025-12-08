@@ -205,6 +205,7 @@ Future plans for ComfyUI-Purz:
 - [x] **More Effects** - Expanded to 120+ effects with 80 new shader effects in v1.5.0
 - [x] **More Presets** - Added 16 new presets (Cinematic, Vintage, Stylized, Enhancement)
 - [x] **Layer Reordering** - Drag and drop to re-arrange effect layers
+- [ ] **Native UI Refactor** - Refactor effects layers window to use native ComfyUI elements for proper resize on V1/V2
 - [ ] **Mask Support** - Apply filter effects selectively using masks
 
 ### Creating Custom Effects

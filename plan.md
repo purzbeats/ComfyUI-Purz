@@ -25,6 +25,10 @@
 - [x] **Layer Reordering** - Drag and drop to re-arrange effect layers
   - Drag handle (⋮⋮) added to each layer
   - Visual feedback with drop indicators above/below target
+- [ ] **Native UI Refactor** - Refactor effects layers window to use native ComfyUI elements
+  - Use proper ComfyUI widget system instead of custom DOM elements
+  - Fix resize behavior to work correctly on both V1 and V2 frontends
+  - Better integration with ComfyUI's node sizing and layout
 - [ ] **Mask Support** - Apply filter effects selectively using masks
 
 ## Future Ideas

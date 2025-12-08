@@ -884,6 +884,122 @@ if HAS_SERVER:
             return web.json_response({"error": str(e)}, status=500)
 
 
+    # =============================================================================
+    # SHADER FILE ENDPOINTS
+    # =============================================================================
+
+    def _get_shaders_dir():
+        """Get the shaders directory path."""
+        return os.path.join(os.path.dirname(__file__), "shaders")
+
+    @PromptServer.instance.routes.get("/purz/shaders/manifest")
+    async def get_shader_manifest(request):
+        """
+        Get the effects manifest (effects.json).
+        """
+        try:
+            shaders_dir = _get_shaders_dir()
+            manifest_path = os.path.join(shaders_dir, "effects.json")
+
+            if not os.path.exists(manifest_path):
+                return web.json_response({"error": "Manifest not found"}, status=404)
+
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest = json.load(f)
+
+            # Also load any custom shaders
+            custom_dir = os.path.join(shaders_dir, "custom")
+            if os.path.exists(custom_dir):
+                custom_effects = {}
+                for filename in os.listdir(custom_dir):
+                    if filename.endswith(".glsl") and not filename.startswith("_"):
+                        effect_id = filename[:-5]  # Remove .glsl
+                        # Check for accompanying .json metadata
+                        meta_path = os.path.join(custom_dir, f"{effect_id}.json")
+                        if os.path.exists(meta_path):
+                            with open(meta_path, "r", encoding="utf-8") as f:
+                                custom_effects[effect_id] = json.load(f)
+                                custom_effects[effect_id]["shader"] = f"custom/{filename}"
+                                custom_effects[effect_id]["isCustom"] = True
+                        else:
+                            # Create basic metadata from filename
+                            custom_effects[effect_id] = {
+                                "name": effect_id.replace("_", " ").title(),
+                                "category": "Custom",
+                                "shader": f"custom/{filename}",
+                                "isCustom": True,
+                                "params": [
+                                    {"name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.5, "step": 0.01}
+                                ]
+                            }
+                # Merge custom effects into manifest
+                manifest["effects"].update(custom_effects)
+
+            return web.json_response(manifest)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return web.json_response({"error": str(e)}, status=500)
+
+    @PromptServer.instance.routes.get("/purz/shaders/file/{path:.*}")
+    async def get_shader_file(request):
+        """
+        Get a specific shader file.
+        Path can be like: basic/desaturate.glsl or custom/myeffect.glsl
+        """
+        try:
+            shader_path = request.match_info["path"]
+            shaders_dir = _get_shaders_dir()
+            filepath = os.path.join(shaders_dir, shader_path)
+
+            # Security: ensure path is within shaders directory
+            filepath = os.path.abspath(filepath)
+            if not filepath.startswith(os.path.abspath(shaders_dir)):
+                return web.json_response({"error": "Invalid path"}, status=400)
+
+            if not os.path.exists(filepath):
+                return web.json_response({"error": "Shader not found"}, status=404)
+
+            with open(filepath, "r", encoding="utf-8") as f:
+                shader_source = f.read()
+
+            return web.Response(text=shader_source, content_type="text/plain")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return web.json_response({"error": str(e)}, status=500)
+
+    @PromptServer.instance.routes.get("/purz/shaders/custom/list")
+    async def list_custom_shaders(request):
+        """
+        List all custom shaders in the custom directory.
+        """
+        try:
+            shaders_dir = _get_shaders_dir()
+            custom_dir = os.path.join(shaders_dir, "custom")
+
+            if not os.path.exists(custom_dir):
+                return web.json_response({"shaders": []})
+
+            shaders = []
+            for filename in os.listdir(custom_dir):
+                if filename.endswith(".glsl") and not filename.startswith("_"):
+                    effect_id = filename[:-5]
+                    meta_path = os.path.join(custom_dir, f"{effect_id}.json")
+                    has_metadata = os.path.exists(meta_path)
+                    shaders.append({
+                        "id": effect_id,
+                        "filename": filename,
+                        "hasMetadata": has_metadata
+                    })
+
+            return web.json_response({"shaders": shaders})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return web.json_response({"error": str(e)}, status=500)
+
+
 # Node mappings for registration
 # Note: Only registering one node to avoid duplicate entries in search
 # Legacy workflows using "PurzInteractiveDesaturate" will need to be updated

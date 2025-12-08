@@ -4,6 +4,22 @@ All notable changes to ComfyUI-Purz are documented here. This includes every cha
 
 ## [Unreleased]
 
+### Added
+- External shader system for Interactive Image Filter
+- `shaders/` directory structure with categorized .glsl files
+- `shaders/effects.json` manifest for effect metadata
+- `shaders/custom/` directory for user-created effects
+- `shaders/custom/_template.glsl` template for creating custom effects
+- Backend endpoints: `/purz/shaders/manifest`, `/purz/shaders/file/{path}`, `/purz/shaders/custom/list`
+- `CustomShaderLoader` frontend module for dynamic shader loading
+- Support for custom effect metadata via .json companion files
+- Custom effects appear in dropdown with " *" suffix
+
+### Changed
+- Built-in shaders are now also available as individual .glsl files for reference
+- Effect dropdown now sorts categories with "Custom" at the end
+- `_addLayer()` and `_loadPreset()` methods are now async to support custom shader loading
+
 ## [1.3.0] - 2025-12-08
 
 ### Added

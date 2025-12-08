@@ -312,3 +312,63 @@ PURZ_RENDERED_IMAGES = {}    # Rendered frames from frontend
 PURZ_BATCH_PENDING = {}      # Number of frames backend is waiting for
 PURZ_BATCH_READY = {}        # Flag set True when all chunks received
 ```
+
+## External Shader System
+
+### Architecture
+The Interactive Filter uses a hybrid shader approach:
+- **Built-in shaders**: 42 effects defined inline in `EFFECT_SHADERS` object for reliability (no network latency)
+- **Custom shaders**: Loaded dynamically from `shaders/custom/` directory via REST API
+
+### Directory Structure
+```
+shaders/
+├── effects.json          # Master manifest with effect metadata
+├── core/                 # Shared shaders (vertex, passthrough)
+├── basic/                # Basic effects (desaturate, brightness, etc.)
+├── color/                # Color effects (hue, temperature, etc.)
+├── tone/                 # Tone effects (highlights, shadows, etc.)
+├── detail/               # Detail effects (blur, sharpen, etc.)
+├── effects/              # Visual effects (vignette, grain, etc.)
+├── artistic/             # Artistic effects (emboss, sketch, etc.)
+├── creative/             # Creative effects (pixelate, glitch, etc.)
+├── lens/                 # Lens effects (distortion, tilt shift, etc.)
+└── custom/               # User-created effects
+    └── _template.glsl    # Template for creating new effects
+```
+
+### Backend Endpoints
+- `GET /purz/shaders/manifest` - Returns effects.json merged with custom effects
+- `GET /purz/shaders/file/{path}` - Serves individual .glsl files (path-secured)
+- `GET /purz/shaders/custom/list` - Lists custom shader files
+
+### Frontend Shader Loading
+```javascript
+// CustomShaderLoader module handles dynamic loading
+await CustomShaderLoader.loadManifest();  // Fetches manifest + discovers custom effects
+const effect = await CustomShaderLoader.getEffect("myeffect");  // Loads shader source
+
+// FilterEngine compiles on demand
+this.filterEngine.loadCustomShader(effectKey, shaderSource);
+```
+
+### Creating Custom Effects
+1. Copy `shaders/custom/_template.glsl` to `shaders/custom/myeffect.glsl`
+2. Edit shader code (WebGL 1.0 GLSL)
+3. Optionally create `shaders/custom/myeffect.json` for custom params:
+   ```json
+   {
+     "name": "My Effect",
+     "category": "Custom",
+     "params": [
+       { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.5, "step": 0.01 }
+     ]
+   }
+   ```
+4. Restart ComfyUI - effect appears with " *" suffix in dropdown
+
+### Key Implementation Patterns
+- **Async layer operations**: `_addLayer()` and `_loadPreset()` are async to support shader loading
+- **Effect definition abstraction**: `_getEffectDef(key)` checks both `EFFECTS` and `CustomShaderLoader.customEffects`
+- **On-demand compilation**: Custom shaders are compiled only when first used
+- **Cached shader source**: `CustomShaderLoader.shaderCache` prevents redundant fetches

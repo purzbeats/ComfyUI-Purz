@@ -190,10 +190,28 @@ If you encounter any issues or have questions, please open an issue on the GitHu
 
 Future plans for ComfyUI-Purz:
 
-- **Custom WebGL Effects** - Break out Interactive Image Filter effects into separate shader files, allowing users to create and share their own custom WebGL effects
-- **Mask Support** - Apply filter effects selectively using masks
-- **More Effects** - Expand the library of available WebGL filter effects
-- **Layer Reordering** - Drag and drop to re-arrange effect layers
+- [x] **Custom WebGL Effects** - Break out Interactive Image Filter effects into separate shader files, allowing users to create and share their own custom WebGL effects
+- [ ] **Mask Support** - Apply filter effects selectively using masks
+- [ ] **More Effects** - Expand the library of available WebGL filter effects
+- [ ] **Layer Reordering** - Drag and drop to re-arrange effect layers
+
+### Creating Custom Effects
+
+You can create your own WebGL filter effects:
+
+1. Copy `shaders/custom/_template.glsl` to a new file like `shaders/custom/myeffect.glsl`
+2. Edit the shader code (WebGL 1.0 GLSL)
+3. Optionally create `shaders/custom/myeffect.json` for custom parameters:
+   ```json
+   {
+     "name": "My Effect",
+     "category": "Custom",
+     "params": [
+       { "name": "amount", "label": "Amount", "min": 0, "max": 1, "default": 0.5, "step": 0.01 }
+     ]
+   }
+   ```
+4. Restart ComfyUI - your effect will appear in the dropdown with a `*` suffix
 
 ## 📋 Changelog
 

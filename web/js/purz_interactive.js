@@ -3,10 +3,112 @@
  *
  * A layer-based real-time image filter system with WebGL shaders.
  * Each layer can have its own effect and opacity.
+ *
+ * Custom shaders can be added to: ComfyUI-Purz/shaders/custom/
+ * See shaders/custom/_template.glsl for the format.
  */
 
 import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
+
+// ============================================================================
+// CUSTOM SHADER LOADER
+// ============================================================================
+
+/**
+ * Loads custom shaders from the shaders/custom/ directory.
+ * Custom shaders are loaded on-demand and merged into EFFECTS.
+ */
+const CustomShaderLoader = {
+    loaded: false,
+    customEffects: {},
+    shaderCache: {},
+
+    /**
+     * Load the shader manifest and discover custom shaders.
+     */
+    async loadManifest() {
+        if (this.loaded) return;
+
+        try {
+            const response = await api.fetchApi("/purz/shaders/manifest");
+            if (response.ok) {
+                const manifest = await response.json();
+
+                // Find custom effects in manifest
+                for (const [key, effect] of Object.entries(manifest.effects)) {
+                    if (effect.isCustom) {
+                        this.customEffects[key] = {
+                            name: effect.name,
+                            category: effect.category || "Custom",
+                            shaderPath: effect.shader,
+                            shader: null, // Will be loaded on demand
+                            needsResolution: effect.needs?.includes("resolution") || false,
+                            needsSeed: effect.needs?.includes("seed") || false,
+                            params: effect.params || [],
+                            isCustom: true
+                        };
+                    }
+                }
+
+                this.loaded = true;
+                console.log(`[Purz] Loaded ${Object.keys(this.customEffects).length} custom effects`);
+            }
+        } catch (e) {
+            console.warn("[Purz] Could not load shader manifest:", e);
+        }
+    },
+
+    /**
+     * Load shader source from file.
+     */
+    async loadShaderSource(shaderPath) {
+        if (this.shaderCache[shaderPath]) {
+            return this.shaderCache[shaderPath];
+        }
+
+        try {
+            const response = await api.fetchApi(`/purz/shaders/file/${shaderPath}`);
+            if (response.ok) {
+                const source = await response.text();
+                this.shaderCache[shaderPath] = source;
+                return source;
+            }
+        } catch (e) {
+            console.error(`[Purz] Failed to load shader: ${shaderPath}`, e);
+        }
+        return null;
+    },
+
+    /**
+     * Get effect definition, loading shader if needed.
+     */
+    async getEffect(effectKey) {
+        const effect = this.customEffects[effectKey];
+        if (!effect) return null;
+
+        // Load shader source if not already loaded
+        if (!effect.shader && effect.shaderPath) {
+            effect.shader = await this.loadShaderSource(effect.shaderPath);
+        }
+
+        return effect;
+    },
+
+    /**
+     * Get all custom effect keys.
+     */
+    getCustomEffectKeys() {
+        return Object.keys(this.customEffects);
+    },
+
+    /**
+     * Check if an effect is custom.
+     */
+    isCustomEffect(effectKey) {
+        return effectKey in this.customEffects;
+    }
+};
 
 // ============================================================================
 // GLSL SHADERS
@@ -1355,6 +1457,36 @@ class FilterEngine {
         }
     }
 
+    /**
+     * Load and compile a custom shader on-demand.
+     * @param {string} effectKey - The effect key
+     * @param {string} shaderSource - The GLSL shader source
+     * @returns {boolean} - Whether compilation succeeded
+     */
+    loadCustomShader(effectKey, shaderSource) {
+        if (this.programs[effectKey]) {
+            // Already compiled
+            return true;
+        }
+
+        const program = this._createProgram(shaderSource);
+        if (program) {
+            this.programs[effectKey] = program;
+            console.log(`[Purz] Compiled custom shader: ${effectKey}`);
+            return true;
+        }
+
+        console.error(`[Purz] Failed to compile custom shader: ${effectKey}`);
+        return false;
+    }
+
+    /**
+     * Check if a shader program exists for the given effect.
+     */
+    hasProgram(effectKey) {
+        return !!this.programs[effectKey];
+    }
+
     _createTexture() {
         const gl = this.gl;
         const texture = gl.createTexture();
@@ -1464,8 +1596,12 @@ class FilterEngine {
             gl.bindTexture(gl.TEXTURE_2D, inputTexture);
             gl.uniform1i(gl.getUniformLocation(program, "u_image"), 0);
 
-            // Set effect parameters
-            const effectDef = EFFECTS[layer.effect];
+            // Set effect parameters (check both built-in and custom effects)
+            const effectDef = EFFECTS[layer.effect] || CustomShaderLoader.customEffects[layer.effect];
+            if (!effectDef) {
+                console.warn(`[Purz] Unknown effect in render: ${layer.effect}`);
+                continue;
+            }
             for (const param of effectDef.params) {
                 const value = layer.params[param.name] ?? param.default;
                 gl.uniform1f(gl.getUniformLocation(program, `u_${param.name}`), value);
@@ -2234,14 +2370,74 @@ class InteractiveFilterWidget {
         // Batch processing state
         this.batchProcessing = false;
 
+        // Custom shaders loaded state
+        this.customShadersLoaded = false;
+
         createStyles();
         this._buildUI();
         this._initPresets();
+        this._initCustomShaders();
     }
 
     async _initPresets() {
         await this._loadCustomPresets();
         this._buildPresetDropdown();
+    }
+
+    async _initCustomShaders() {
+        // Load custom shaders manifest
+        await CustomShaderLoader.loadManifest();
+        this.customShadersLoaded = true;
+
+        // Re-render layers to include custom effects in dropdown
+        if (this.layers.length > 0) {
+            this._renderLayers();
+        }
+    }
+
+    /**
+     * Get effect definition, checking both built-in and custom effects.
+     */
+    _getEffectDef(effectKey) {
+        if (EFFECTS[effectKey]) {
+            return EFFECTS[effectKey];
+        }
+        if (CustomShaderLoader.customEffects[effectKey]) {
+            return CustomShaderLoader.customEffects[effectKey];
+        }
+        return null;
+    }
+
+    /**
+     * Get all effects (built-in + custom) for dropdown.
+     */
+    _getAllEffects() {
+        const allEffects = { ...EFFECTS };
+        for (const [key, effect] of Object.entries(CustomShaderLoader.customEffects)) {
+            allEffects[key] = effect;
+        }
+        return allEffects;
+    }
+
+    /**
+     * Ensure custom shader is compiled before rendering.
+     */
+    async _ensureCustomShaderCompiled(effectKey) {
+        if (!CustomShaderLoader.isCustomEffect(effectKey)) {
+            return true; // Built-in shader, already compiled
+        }
+
+        if (this.engine && this.engine.hasProgram(effectKey)) {
+            return true; // Already compiled
+        }
+
+        // Load and compile the custom shader
+        const effect = await CustomShaderLoader.getEffect(effectKey);
+        if (effect && effect.shader && this.engine) {
+            return this.engine.loadCustomShader(effectKey, effect.shader);
+        }
+
+        return false;
     }
 
     _buildUI() {
@@ -2395,7 +2591,16 @@ class InteractiveFilterWidget {
         this.container.appendChild(this.statusEl);
     }
 
-    _addLayer(effectType = "desaturate") {
+    async _addLayer(effectType = "desaturate") {
+        const effectDef = this._getEffectDef(effectType);
+        if (!effectDef) {
+            console.warn(`[Purz] Unknown effect: ${effectType}`);
+            return;
+        }
+
+        // Ensure custom shader is compiled before adding layer
+        await this._ensureCustomShaderCompiled(effectType);
+
         const layer = {
             id: ++this.layerIdCounter,
             effect: effectType,
@@ -2405,13 +2610,12 @@ class InteractiveFilterWidget {
         };
 
         // Set default params
-        for (const param of EFFECTS[effectType].params) {
+        for (const param of effectDef.params) {
             layer.params[param.name] = param.default;
         }
 
         // Generate and store seed for effects that need it (ensures preview matches output)
-        const effectDef = EFFECTS[effectType];
-        if (effectDef && effectDef.needsSeed) {
+        if (effectDef.needsSeed) {
             layer.params.seed = Math.random() * 1000;
         }
 
@@ -2428,7 +2632,7 @@ class InteractiveFilterWidget {
         fitHeight(this.node, this);
     }
 
-    _loadPreset(presetKey) {
+    async _loadPreset(presetKey) {
         // Check built-in presets first, then custom presets
         let preset = PRESETS[presetKey];
         let isCustom = false;
@@ -2446,8 +2650,11 @@ class InteractiveFilterWidget {
 
         // Add layers from preset
         for (const presetLayer of preset.layers) {
-            const effectDef = EFFECTS[presetLayer.effect];
+            const effectDef = this._getEffectDef(presetLayer.effect);
             if (!effectDef) continue; // Skip unknown effects
+
+            // Ensure custom shader is compiled
+            await this._ensureCustomShaderCompiled(presetLayer.effect);
 
             const layer = {
                 id: ++this.layerIdCounter,
@@ -2681,37 +2888,50 @@ class InteractiveFilterWidget {
         const select = document.createElement("select");
         select.className = "purz-layer-select";
 
-        // Group effects by category
+        // Group effects by category (including custom effects)
+        const allEffects = this._getAllEffects();
         const categories = {};
-        for (const [key, effect] of Object.entries(EFFECTS)) {
+        for (const [key, effect] of Object.entries(allEffects)) {
             const cat = effect.category || "Other";
             if (!categories[cat]) categories[cat] = [];
             categories[cat].push({ key, effect });
         }
 
+        // Sort categories with Custom at the end
+        const categoryOrder = ["Basic", "Color", "Tone", "Detail", "Effects", "Artistic", "Creative", "Lens", "Custom"];
+        const sortedCategories = Object.entries(categories).sort((a, b) => {
+            const aIdx = categoryOrder.indexOf(a[0]);
+            const bIdx = categoryOrder.indexOf(b[0]);
+            return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+        });
+
         // Add options grouped by category
-        for (const [category, effects] of Object.entries(categories)) {
+        for (const [category, effects] of sortedCategories) {
             const optgroup = document.createElement("optgroup");
             optgroup.label = category;
             for (const { key, effect } of effects) {
                 const opt = document.createElement("option");
                 opt.value = key;
-                opt.textContent = effect.name;
+                opt.textContent = effect.name + (effect.isCustom ? " *" : "");
                 opt.selected = key === layer.effect;
                 optgroup.appendChild(opt);
             }
             select.appendChild(optgroup);
         }
-        select.addEventListener("change", () => {
+        select.addEventListener("change", async () => {
             layer.effect = select.value;
             layer.params = {};
-            for (const param of EFFECTS[layer.effect].params) {
-                layer.params[param.name] = param.default;
-            }
-            // Generate seed for effects that need it
-            const effectDef = EFFECTS[layer.effect];
-            if (effectDef && effectDef.needsSeed) {
-                layer.params.seed = Math.random() * 1000;
+            const effectDef = this._getEffectDef(layer.effect);
+            if (effectDef) {
+                for (const param of effectDef.params) {
+                    layer.params[param.name] = param.default;
+                }
+                // Generate seed for effects that need it
+                if (effectDef.needsSeed) {
+                    layer.params.seed = Math.random() * 1000;
+                }
+                // Ensure custom shader is compiled
+                await this._ensureCustomShaderCompiled(layer.effect);
             }
             this._renderLayers();
             this._updatePreview();
@@ -2730,8 +2950,12 @@ class InteractiveFilterWidget {
         const controls = document.createElement("div");
         controls.className = "purz-layer-controls";
 
-        // Effect params
-        const effect = EFFECTS[layer.effect];
+        // Effect params (use helper to support custom effects)
+        const effect = this._getEffectDef(layer.effect);
+        if (!effect) {
+            console.warn(`[Purz] Unknown effect: ${layer.effect}`);
+            return el;
+        }
         for (const param of effect.params) {
             const row = document.createElement("div");
             row.className = "purz-control-row";

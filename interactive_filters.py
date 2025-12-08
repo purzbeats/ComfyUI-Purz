@@ -508,10 +508,10 @@ class InteractiveImageFilter:
 
     def process(self, image, prompt=None, extra_pnginfo=None, unique_id=None):
         """
-        Process the input image batch with stored filter layers.
+        Process the input image(s) with stored filter layers.
         Frontend renders each frame through WebGL, backend outputs the results.
 
-        Flow for batches:
+        Flow for images with filters:
         1. Backend saves images to temp, signals it's waiting for processing
         2. Backend returns UI data (purz_images) to frontend
         3. Frontend receives images, sees pending signal, processes through WebGL
@@ -544,8 +544,8 @@ class InteractiveImageFilter:
 
         output_image = image
 
-        # For batches > 1 with filters, wait for frontend to process
-        if node_id and batch_size > 1:
+        # For batches with filters, wait for frontend to process
+        if node_id and batch_size >= 1:
             # Check if there are filters to apply
             layers = PURZ_FILTER_LAYERS.get(node_id, [])
             has_filters = len([l for l in layers if l.get("enabled", True)]) > 0

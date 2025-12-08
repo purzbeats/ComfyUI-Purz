@@ -4,6 +4,10 @@ All notable changes to ComfyUI-Purz are documented here. This includes every cha
 
 ## [Unreleased]
 
+### Fixed
+- Single image processing now applies filters correctly (was broken by batch processing feature)
+- Changed batch processing condition from `batch_size > 1` to `batch_size >= 1` to include single images
+
 ## [1.5.0] - 2025-12-08
 
 ### Added

@@ -6,7 +6,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ComfyUI-Purz is a custom node pack for ComfyUI providing image effects, pattern generation, and animated pattern creation. It is installed as a custom node in ComfyUI's `custom_nodes/` directory.
 
+**Key Features**:
+- 120+ real-time WebGL filter effects via Interactive Image Filter
+- Video batch processing with live preview
+- External shader system for custom user effects
+- 40+ professional presets for common looks
+- Static and animated pattern generators
+- Traditional image processing effects
+
+**Project Stats**: ~1400 lines of Python, ~3500 lines of JavaScript, 120+ GLSL shader effects
+
 ## Architecture
+
+### File Structure
+```
+ComfyUI-Purz/
+├── __init__.py                   # Entry point, exports NODE_CLASS_MAPPINGS and WEB_DIRECTORY
+├── nodes.py                      # Aggregates all node mappings from source modules
+├── image_effects.py              # Traditional image processing nodes
+├── pattern_generators.py         # Static pattern generation nodes
+├── animated_patterns.py          # Animated pattern nodes with math utilities
+├── interactive_filters.py        # Interactive filter node with backend API and filter implementations
+├── web/
+│   └── js/
+│       └── purz_interactive.js   # Frontend WebGL renderer, UI, and batch processing
+├── shaders/
+│   ├── effects.json              # Shader manifest with metadata
+│   ├── core/                     # Shared vertex/passthrough shaders
+│   ├── basic/, color/, tone/, detail/, effects/, artistic/, creative/, lens/
+│   │   └── *.glsl                # Categorized shader effect files
+│   └── custom/
+│       ├── _template.glsl        # Template for creating custom effects
+│       └── *.glsl                # User-created custom shaders
+├── presets/
+│   └── *.json                    # Built-in and user-saved presets
+├── pyproject.toml                # Project metadata and version
+├── requirements.txt              # Python dependencies
+├── CLAUDE.md                     # This file
+├── CHANGELOG.md                  # All changes (including ephemeral)
+├── README.md                     # User-facing documentation
+└── plan.md                       # Development roadmap
+```
 
 ### Node Registration System
 - `__init__.py` exports `NODE_CLASS_MAPPINGS` and `NODE_DISPLAY_NAME_MAPPINGS` from `nodes.py`
@@ -41,6 +81,12 @@ Each node class follows this pattern:
 ### Image Format
 ComfyUI images are PyTorch tensors in format `[batch, height, width, channels]` with float32 values in 0-1 range.
 
+**Important**: When converting between formats:
+- PyTorch → NumPy: `img_np = img_tensor.cpu().numpy()`
+- NumPy → PyTorch: `img_tensor = torch.from_numpy(img_np)`
+- NumPy → PIL: `pil_img = Image.fromarray((img_np * 255).astype(np.uint8))`
+- PIL → NumPy: `img_np = np.array(pil_img).astype(np.float32) / 255.0`
+
 ## Dependencies
 - PyTorch >= 1.9.0
 - NumPy >= 1.19.0
@@ -50,12 +96,26 @@ ComfyUI images are PyTorch tensors in format `[batch, height, width, channels]` 
 
 ## Development
 
+### Setup
 Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-Test by loading ComfyUI - nodes appear under the "Purz/" category hierarchy.
+### Testing
+This node pack has no automated test suite. To test changes:
+1. Make code changes to the Python files
+2. Restart ComfyUI (or use ComfyUI's reload custom nodes feature if available)
+3. Verify nodes appear under the "Purz/" category hierarchy
+4. Load a workflow using the nodes and test functionality
+5. For Interactive Filter changes, test both WebGL preview and workflow output
+
+### Development Workflow
+1. Edit Python node code in `image_effects.py`, `pattern_generators.py`, `animated_patterns.py`, or `interactive_filters.py`
+2. For frontend changes, edit `web/js/purz_interactive.js`
+3. For shader changes, edit files in `shaders/` directory or add custom shaders to `shaders/custom/`
+4. Update CHANGELOG.md immediately with every change (even experimental ones)
+5. When ready to release, update version in `pyproject.toml`, move CHANGELOG entries, and update README.md
 
 ## Frontend JavaScript Extensions
 
@@ -156,6 +216,33 @@ api.fetchApi("/purz/interactive/set_layers", {
     body: JSON.stringify({ node_id: this.node.id, layers: layerData })
 });
 ```
+
+## Backend API Endpoints
+
+All Interactive Filter backend endpoints are registered in `interactive_filters.py`:
+
+- `POST /purz/interactive/set_layers` - Store filter layer configuration from frontend
+  - Body: `{ node_id: string, layers: array }`
+  - Returns: `{ success: true }`
+
+- `POST /purz/interactive/set_rendered_batch` - Upload WebGL-rendered frames for batch output
+  - Body: `{ node_id: string, frames: array<base64>, chunk_index?: number, total_chunks?: number, is_final?: boolean }`
+  - Supports chunked uploads for large video batches
+  - Returns: `{ success: true }`
+
+- `GET /purz/interactive/batch_pending/{node_id}` - Poll for pending batch processing status
+  - Returns: `{ pending: boolean, count?: number }`
+  - Used as fallback when WebSocket events don't arrive
+
+- `GET /purz/shaders/manifest` - Get effects.json merged with custom shader metadata
+  - Returns: `{ effects: array }`
+
+- `GET /purz/shaders/file/{path}` - Serve individual .glsl shader files
+  - Path is sanitized to prevent directory traversal
+  - Returns: shader source code as text
+
+- `GET /purz/shaders/custom/list` - List available custom shader files
+  - Returns: `{ files: array<string> }`
 
 ## WebGL Shader Development
 
@@ -405,7 +492,9 @@ Without this pre-compilation, custom effects render black frames because `batchE
 ## Preset System
 
 ### Built-in Presets (40+)
-Presets are stored as JSON files in the `presets/` directory and organized by category:
+Presets are stored as JSON files in the `presets/` directory and organized by category.
+
+**Important**: User-saved custom presets are also stored in `presets/` directory at the root of this node pack. When a user saves a preset in the Interactive Filter UI, it creates a JSON file here. These files may be lost during uninstall/reinstall, so users should back them up. The README.md warns users about this.
 - **Film**: Classic, Vintage Film, Cinematic, Noir, etc.
 - **Portrait**: Soft Skin, Warm Portrait, Cool Portrait, etc.
 - **Landscape**: Vivid Nature, Golden Hour, Misty Morning, etc.

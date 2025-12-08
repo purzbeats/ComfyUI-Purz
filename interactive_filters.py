@@ -668,5 +668,5 @@ INTERACTIVE_NODE_CLASS_MAPPINGS = {
 }
 
 INTERACTIVE_NODE_DISPLAY_NAME_MAPPINGS = {
-    "PurzInteractiveFilter": "Interactive Filter (Purz)",
+    "PurzInteractiveFilter": "Image Filter Live",
 }

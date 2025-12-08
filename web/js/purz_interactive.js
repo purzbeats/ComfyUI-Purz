@@ -2068,7 +2068,10 @@ class InteractiveFilterWidget {
     _updatePreview() {
         if (!this.engine || !this.engine.imageLoaded) return;
         this.engine.render(this.layers);
-        this._syncLayersToBackend();
+
+        // Debounce the backend sync (full-res render is expensive)
+        if (this._syncTimeout) clearTimeout(this._syncTimeout);
+        this._syncTimeout = setTimeout(() => this._syncLayersToBackend(), 300);
     }
 
     _syncLayersToBackend() {

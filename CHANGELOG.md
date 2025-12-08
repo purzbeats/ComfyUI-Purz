@@ -4,6 +4,8 @@ All notable changes to ComfyUI-Purz are documented here. This includes every cha
 
 ## [Unreleased]
 
+## [1.4.0] - 2025-12-08
+
 ### Added
 - External shader system for Interactive Image Filter
 - `shaders/` directory structure with categorized .glsl files

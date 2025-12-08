@@ -215,6 +215,14 @@ You can create your own WebGL filter effects:
 
 ## 📋 Changelog
 
+### v1.4.0 (2025-12-08)
+- **NEW: Custom WebGL Effects** - Create and share your own filter effects
+  - 42 built-in shaders extracted to `shaders/` directory for reference
+  - Custom shaders go in `shaders/custom/` with optional .json metadata
+  - Template provided at `shaders/custom/_template.glsl`
+  - Custom effects appear in dropdown with " *" suffix
+  - Backend API endpoints for dynamic shader loading
+
 ### v1.3.0 (2025-12-08)
 - **NEW: Video Batch Processing** - Full support for processing video sequences
   - Built-in playback controls with play/pause, frame scrubber, and FPS selection

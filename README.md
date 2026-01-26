@@ -228,6 +228,11 @@ You can create your own WebGL filter effects:
 
 ## 📋 Changelog
 
+### v1.6.1 (2025-01-26)
+- **Memory Leak Fix** - Interactive Filter now properly cleans up WebGL resources when node is deleted
+- **DOM Widget Overflow Fix** - UI controls no longer break out of node bounds in LiteGraph
+- **Batch Processing Timing Fix** - Frames are now properly processed through filters before output (fixes race condition)
+
 ### v1.6.0 (2025-12-08)
 - **V3 Schema Support** - All nodes now use ComfyUI V3 schema with slider widgets for better UX
   - Slider controls for all numeric inputs (brightness, contrast, angles, sizes, etc.)

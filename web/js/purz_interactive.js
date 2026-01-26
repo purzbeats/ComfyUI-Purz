@@ -1701,6 +1701,53 @@ class FilterEngine {
 
         return imageData;
     }
+
+    /**
+     * Clean up WebGL resources.
+     * Call this when the widget is being destroyed to prevent memory leaks.
+     */
+    cleanup() {
+        const gl = this.gl;
+        if (!gl) return;
+
+        // Delete framebuffers and their textures
+        for (const fb of this.framebuffers) {
+            if (fb.framebuffer) gl.deleteFramebuffer(fb.framebuffer);
+            if (fb.texture) gl.deleteTexture(fb.texture);
+        }
+        this.framebuffers = [];
+
+        // Delete source texture
+        if (this.sourceTexture) {
+            gl.deleteTexture(this.sourceTexture);
+            this.sourceTexture = null;
+        }
+
+        // Delete buffers
+        if (this.positionBuffer) {
+            gl.deleteBuffer(this.positionBuffer);
+            this.positionBuffer = null;
+        }
+        if (this.texCoordBuffer) {
+            gl.deleteBuffer(this.texCoordBuffer);
+            this.texCoordBuffer = null;
+        }
+
+        // Delete all shader programs
+        for (const [key, program] of Object.entries(this.programs)) {
+            if (program) gl.deleteProgram(program);
+        }
+        this.programs = {};
+
+        // Lose WebGL context to free GPU memory
+        const loseContext = gl.getExtension('WEBGL_lose_context');
+        if (loseContext) {
+            loseContext.loseContext();
+        }
+
+        this.gl = null;
+        this.imageLoaded = false;
+    }
 }
 
 // ============================================================================
@@ -2164,10 +2211,13 @@ function createStyles() {
             display: flex;
             flex-direction: column;
             width: 100%;
+            height: 100%;
             box-sizing: border-box;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 12px;
             color: #ddd;
+            overflow: hidden;
+            position: relative;
         }
         .purz-canvas-wrapper {
             margin-bottom: 8px;
@@ -2219,7 +2269,8 @@ function createStyles() {
             gap: 4px;
             flex: 1;
             overflow-y: auto;
-            min-height: 0;
+            min-height: 40px;
+            max-height: 300px;
         }
         .purz-layer {
             background: #2a2a2a;
@@ -2537,11 +2588,11 @@ function fitHeight(node, widget) {
     let height = 500; // Base height
     if (widget) {
         const size = widget.computeSize(node.size[0]);
-        height = size[1] + 50; // Add extra buffer
+        height = size[1] + 40; // Buffer for node title bar and chrome
 
-        // Also set min-height on container to force LiteGraph to respect it
+        // Set explicit height on container to match computed size
         if (widget.container) {
-            widget.container.style.minHeight = (size[1] - 30) + "px";
+            widget.container.style.height = size[1] + "px";
         }
     }
 
@@ -3497,17 +3548,35 @@ class InteractiveFilterWidget {
 
     async _processAndSendBatch() {
         // Process all batch frames through WebGL and send to backend
-        if (!this.batchImages || this.batchImages.length === 0) return;
-        if (this.batchProcessing) return; // Prevent concurrent processing
-
-        if (this.layers.length === 0) {
-            // No filters, clear any previous rendered batch
-            api.fetchApi("/purz/interactive/set_rendered_batch", {
+        if (!this.batchImages || this.batchImages.length === 0) {
+            // Signal backend that we have nothing to process
+            await api.fetchApi("/purz/interactive/set_rendered_batch", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     node_id: this.node.id,
-                    rendered_frames: []
+                    batch_id: this.currentBatchId || "",
+                    rendered_frames: [],
+                    is_final: true
+                })
+            });
+            return;
+        }
+        if (this.batchProcessing) return; // Prevent concurrent processing
+
+        // Check if we have any enabled filters
+        const enabledLayers = this.layers.filter(l => l.enabled);
+        if (enabledLayers.length === 0) {
+            // No filters enabled, signal backend to use original frames
+            console.log("[Purz] No filters enabled, signaling backend to use original");
+            await api.fetchApi("/purz/interactive/set_rendered_batch", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    node_id: this.node.id,
+                    batch_id: this.currentBatchId || "",
+                    rendered_frames: [],
+                    is_final: true
                 })
             });
             return;
@@ -3626,6 +3695,7 @@ class InteractiveFilterWidget {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         node_id: this.node.id,
+                        batch_id: this.currentBatchId || "",
                         rendered_frames: chunk,
                         chunk_index: i,
                         total_chunks: totalChunks,
@@ -3895,19 +3965,72 @@ class InteractiveFilterWidget {
             canvasDisplayHeight = Math.min(containerWidth * aspectRatio, maxDisplayHeight);
         }
 
-        // Vertical layout: canvas + header/status + layers + actions
-        const headerHeight = 40; // Status and layers header
+        // Vertical layout breakdown:
+        // - Canvas (variable based on aspect ratio)
+        // - Playback controls (30px if batch, 0 otherwise)
+        // - Preset row (40px)
+        // - Effects header (30px)
+        // - Layers list (variable, max 300px due to CSS max-height)
+        // - Actions row (45px)
+        // - Status text (20px)
+        const playbackHeight = this.batchImages && this.batchImages.length > 1 ? 35 : 0;
+        const presetHeight = 50;
+        const headerHeight = 35;
+        const maxLayersHeight = 300; // Matches CSS max-height
         const layersHeight = this.layers.length > 0
-            ? Math.max(50, this.layers.length * 90)
-            : 40; // Empty state height
-        const actionsHeight = 50; // Save/Reset buttons
+            ? Math.min(this.layers.length * 90, maxLayersHeight)
+            : 45; // Empty state
+        const actionsHeight = 55;
+        const statusHeight = 25;
+        const padding = 30; // Extra padding for node chrome
 
-        const padding = 20;
-
-        const totalHeight = canvasDisplayHeight + headerHeight + layersHeight + actionsHeight + padding;
+        const totalHeight = canvasDisplayHeight + playbackHeight + presetHeight +
+                           headerHeight + layersHeight + actionsHeight +
+                           statusHeight + padding;
         return [width, totalHeight];
     }
+
+    /**
+     * Clean up all resources when the node is removed.
+     * Prevents memory leaks from WebGL contexts, animation frames, intervals, etc.
+     */
+    dispose() {
+        console.log(`[Purz] Disposing InteractiveFilterWidget for node ${this.node?.id}`);
+
+        // Stop any running animations
+        this._stopAnimationLoop();
+
+        // Stop playback
+        this._stopPlayback();
+
+        // Clean up WebGL engine
+        if (this.engine) {
+            this.engine.cleanup();
+            this.engine = null;
+        }
+
+        // Clear loaded frames cache
+        this.loadedFrames = [];
+        this.batchImages = [];
+        this.sourceImage = null;
+
+        // Clear layer data
+        this.layers = [];
+
+        // Remove DOM elements
+        if (this.container && this.container.parentNode) {
+            this.container.parentNode.removeChild(this.container);
+        }
+        this.container = null;
+        this.canvas = null;
+
+        // Clear node reference
+        this.node = null;
+    }
 }
+
+// Store widget instances for cleanup
+const widgetInstances = new Map();
 
 // ============================================================================
 // COMFYUI EXTENSION REGISTRATION
@@ -3922,9 +4045,10 @@ app.registerExtension({
         // Listen for batch_pending message from backend
         // This signals that the backend is waiting for us to process frames
         api.addEventListener("purz.batch_pending", async (event) => {
-            console.log("[Purz] Received batch_pending event:", event);
-            const { node_id, batch_size, images } = event.detail;
-            console.log(`[Purz] Backend waiting for batch processing: node ${node_id}, ${batch_size} frames`);
+            console.log("[Purz] *** RECEIVED batch_pending event ***", event);
+            console.log("[Purz] event.detail:", event.detail);
+            const { node_id, batch_size, batch_id, images } = event.detail;
+            console.log(`[Purz] Backend waiting for batch processing: node ${node_id}, ${batch_size} frames, batch_id=${batch_id}`);
 
             // Find the node (try both string and int keys)
             let node = app.graph._nodes_by_id[node_id];
@@ -3937,6 +4061,9 @@ app.registerExtension({
             }
 
             const widget = node.filterWidget;
+
+            // Store batch_id for this execution
+            widget.currentBatchId = batch_id;
 
             // Update batch images if provided
             if (images && images.length > 0) {
@@ -3961,21 +4088,34 @@ app.registerExtension({
                     onNodeCreated.apply(this, arguments);
                 }
 
-                const widget = new InteractiveFilterWidget(this);
+                const node = this;
+                const widget = new InteractiveFilterWidget(node);
 
-                const domWidget = this.addDOMWidget("interactive_filter", "preview", widget.getElement(), {
+                const domWidget = node.addDOMWidget("interactive_filter", "preview", widget.getElement(), {
                     serialize: false,
                     hideOnZoom: false,
                 });
 
                 domWidget.computeSize = (width) => widget.computeSize(width);
 
-                this.filterWidget = widget;
-                this.setSize([340, 500]);
+                // Store widget instance for cleanup tracking
+                widgetInstances.set(node.id, widget);
+                node.filterWidget = widget;
+
+                // Cleanup handler when widget/node is removed
+                domWidget.onRemove = () => {
+                    const instance = widgetInstances.get(node.id);
+                    if (instance) {
+                        instance.dispose();
+                        widgetInstances.delete(node.id);
+                    }
+                };
+
+                node.setSize([340, 500]);
 
                 // Enforce minimum width based on image
-                const originalOnResize = this.onResize;
-                this.onResize = function(size) {
+                const originalOnResize = node.onResize;
+                node.onResize = function(size) {
                     const minWidth = widget.minWidth || 250;
                     if (size[0] < minWidth) {
                         size[0] = minWidth;

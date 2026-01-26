@@ -38,6 +38,7 @@ from .interactive_filters import (
     PURZ_RENDERED_IMAGES,
     PURZ_BATCH_PENDING,
     PURZ_BATCH_READY,
+    PURZ_BATCH_ID,
 )
 
 
@@ -484,7 +485,7 @@ class InteractiveImageFilter(io.ComfyNode):
         return float("nan")
 
     @classmethod
-    def execute(cls, image) -> io.NodeOutput:
+    def execute(cls, image, **kwargs) -> io.NodeOutput:
         """
         Process the input image(s) with stored filter layers.
         Frontend renders each frame through WebGL, backend outputs the results.
@@ -495,9 +496,37 @@ class InteractiveImageFilter(io.ComfyNode):
         prefix_append = "_purz_filter_" + ''.join(random.choice("abcdefghijklmnopqrstuvwxyz") for _ in range(5))
         compress_level = 1
 
-        # Access hidden values via cls.hidden
-        unique_id = cls.hidden.unique_id if hasattr(cls, 'hidden') and cls.hidden else None
+        # Debug: print all kwargs to see what's available
+        print(f"[Purz Interactive V3] kwargs: {kwargs}")
+        print(f"[Purz Interactive V3] kwargs keys: {list(kwargs.keys())}")
+
+        # Try to get unique_id from various possible locations
+        unique_id = None
+
+        # Method 1: Direct kwarg
+        if 'unique_id' in kwargs:
+            unique_id = kwargs['unique_id']
+            print(f"[Purz Interactive V3] Found unique_id in kwargs: {unique_id}")
+
+        # Method 2: Hidden dict
+        if unique_id is None and 'hidden' in kwargs:
+            hidden = kwargs['hidden']
+            if isinstance(hidden, dict) and 'unique_id' in hidden:
+                unique_id = hidden['unique_id']
+                print(f"[Purz Interactive V3] Found unique_id in hidden dict: {unique_id}")
+            elif hasattr(hidden, 'unique_id'):
+                unique_id = hidden.unique_id
+                print(f"[Purz Interactive V3] Found unique_id in hidden object: {unique_id}")
+
+        # Method 3: Try cls.hidden (V3 pattern)
+        if unique_id is None and hasattr(cls, 'hidden') and cls.hidden:
+            if hasattr(cls.hidden, 'unique_id'):
+                unique_id = cls.hidden.unique_id
+                print(f"[Purz Interactive V3] Found unique_id in cls.hidden: {unique_id}")
+
         node_id = str(unique_id) if unique_id is not None else None
+
+        print(f"[Purz Interactive V3] Final: unique_id={unique_id}, node_id={node_id}, HAS_SERVER={HAS_SERVER}")
         batch_size = image.shape[0]
 
         # Save ALL original images to temp directory for frontend processing
@@ -523,81 +552,87 @@ class InteractiveImageFilter(io.ComfyNode):
 
         output_image = image
 
-        # For batches with filters, wait for frontend to process
-        if node_id and batch_size >= 1:
-            # Check if there are filters to apply
-            layers = PURZ_FILTER_LAYERS.get(node_id, [])
-            has_filters = len([l for l in layers if l.get("enabled", True)]) > 0
+        print(f"[Purz Interactive V3] execute() called: node_id={node_id}, batch_size={batch_size}, HAS_SERVER={HAS_SERVER}")
 
-            if has_filters:
-                # Signal that we're waiting for frontend processing
-                PURZ_BATCH_PENDING[node_id] = batch_size
-                PURZ_BATCH_READY[node_id] = False
+        # Always signal to frontend and wait for processing
+        # The frontend will decide if filters need to be applied
+        if node_id and batch_size >= 1 and HAS_SERVER:
+            # Generate unique batch ID to prevent stale frame mixing from previous runs
+            batch_id = f"{node_id}_{int(time.time() * 1000)}_{random.randint(0, 99999)}"
+            PURZ_BATCH_ID[node_id] = batch_id
 
-                # Clear any stale rendered frames
-                if node_id in PURZ_RENDERED_IMAGES:
-                    del PURZ_RENDERED_IMAGES[node_id]
+            # Signal that we're waiting for frontend processing
+            PURZ_BATCH_PENDING[node_id] = batch_size
+            PURZ_BATCH_READY[node_id] = False
+            PURZ_RENDERED_IMAGES[node_id] = None  # Will be set to [] for "no filters" or frames list
 
-                print(f"[Purz Interactive V3] Waiting for frontend to process {batch_size} frames with {len(layers)} filter(s)...")
+            print(f"[Purz Interactive V3] Signaling frontend to process {batch_size} frame(s)... batch_id={batch_id}")
 
-                # Use PromptServer to send message to frontend that we need processing
-                if HAS_SERVER:
-                    PromptServer.instance.send_sync("purz.batch_pending", {
-                        "node_id": node_id,
-                        "batch_size": batch_size,
-                        "images": results
-                    })
+            # Send message to frontend that we need processing
+            PromptServer.instance.send_sync("purz.batch_pending", {
+                "node_id": node_id,
+                "batch_size": batch_size,
+                "batch_id": batch_id,
+                "images": results
+            })
 
-                # Wait for frontend to signal completion (with timeout)
-                max_wait = 300  # 5 minutes max
-                poll_interval = 0.1  # 100ms
-                waited = 0
+            # Give the WebSocket message time to be delivered
+            time.sleep(0.5)
+            print(f"[Purz Interactive V3] Message sent, starting to wait...")
 
-                while not PURZ_BATCH_READY.get(node_id, False) and waited < max_wait:
-                    time.sleep(poll_interval)
-                    waited += poll_interval
+            # Wait for frontend to signal completion (with timeout)
+            max_wait = 300  # 5 minutes max
+            poll_interval = 0.1  # 100ms
+            waited = 0
 
-                    # Log progress every 10 seconds
-                    if waited > 0 and int(waited * 10) % 100 == 0:
-                        rendered_count = len(PURZ_RENDERED_IMAGES.get(node_id, []))
-                        print(f"[Purz Interactive V3] Waiting... ({rendered_count}/{batch_size} frames, {int(waited)}s elapsed)")
+            while not PURZ_BATCH_READY.get(node_id, False) and waited < max_wait:
+                time.sleep(poll_interval)
+                waited += poll_interval
 
-                # Check if we got the rendered frames
-                if PURZ_BATCH_READY.get(node_id, False):
-                    rendered_frames = PURZ_RENDERED_IMAGES.get(node_id, [])
-                    if rendered_frames and len(rendered_frames) == batch_size:
-                        try:
-                            batch_results = []
-                            print(f"[Purz Interactive V3] Decoding {len(rendered_frames)} WebGL-rendered frames")
+                # Log progress every 10 seconds
+                if waited > 0 and int(waited * 10) % 100 == 0:
+                    rendered_count = len(PURZ_RENDERED_IMAGES.get(node_id) or [])
+                    print(f"[Purz Interactive V3] Waiting... ({rendered_count}/{batch_size} frames, {int(waited)}s elapsed)")
 
-                            for i, rendered_b64 in enumerate(rendered_frames):
-                                if "," in rendered_b64:
-                                    rendered_b64 = rendered_b64.split(",")[1]
-                                image_bytes = base64.b64decode(rendered_b64)
-                                rendered_pil = Image.open(python_io.BytesIO(image_bytes)).convert("RGB")
-                                rendered_np = np.array(rendered_pil).astype(np.float32) / 255.0
-                                batch_results.append(torch.from_numpy(rendered_np))
+            # Check if we got the rendered frames
+            if PURZ_BATCH_READY.get(node_id, False):
+                rendered_frames = PURZ_RENDERED_IMAGES.get(node_id)
 
-                            output_image = torch.stack(batch_results)
-                            print(f"[Purz Interactive V3] Batch output ready: {output_image.shape}")
+                # If rendered_frames is empty list, frontend said no filters - use original
+                if rendered_frames is None:
+                    print(f"[Purz Interactive V3] Frontend didn't respond, using original")
+                elif len(rendered_frames) == 0:
+                    print(f"[Purz Interactive V3] No filters applied, using original batch")
+                elif len(rendered_frames) == batch_size:
+                    try:
+                        batch_results = []
+                        print(f"[Purz Interactive V3] Decoding {len(rendered_frames)} WebGL-rendered frames")
 
-                        except Exception as e:
-                            print(f"[Purz Interactive V3] Failed to decode rendered frames: {e}")
-                            import traceback
-                            traceback.print_exc()
-                    else:
-                        print(f"[Purz Interactive V3] Frame count mismatch: got {len(rendered_frames) if rendered_frames else 0}, expected {batch_size}")
+                        for i, rendered_b64 in enumerate(rendered_frames):
+                            if "," in rendered_b64:
+                                rendered_b64 = rendered_b64.split(",")[1]
+                            image_bytes = base64.b64decode(rendered_b64)
+                            rendered_pil = Image.open(python_io.BytesIO(image_bytes)).convert("RGB")
+                            rendered_np = np.array(rendered_pil).astype(np.float32) / 255.0
+                            batch_results.append(torch.from_numpy(rendered_np))
+
+                        output_image = torch.stack(batch_results)
+                        print(f"[Purz Interactive V3] Batch output ready: {output_image.shape}")
+
+                    except Exception as e:
+                        print(f"[Purz Interactive V3] Failed to decode rendered frames: {e}")
+                        import traceback
+                        traceback.print_exc()
                 else:
-                    print(f"[Purz Interactive V3] Timeout waiting for frontend processing after {int(waited)}s")
-
-                # Clean up
-                PURZ_BATCH_PENDING.pop(node_id, None)
-                PURZ_BATCH_READY.pop(node_id, None)
-                PURZ_RENDERED_IMAGES.pop(node_id, None)
+                    print(f"[Purz Interactive V3] Frame count mismatch: got {len(rendered_frames)}, expected {batch_size}")
             else:
-                print(f"[Purz Interactive V3] No filters applied, outputting original batch")
+                print(f"[Purz Interactive V3] Timeout waiting for frontend processing after {int(waited)}s")
 
-        # For single images, check for pre-rendered result
+            # Clean up
+            PURZ_BATCH_PENDING.pop(node_id, None)
+            PURZ_BATCH_READY.pop(node_id, None)
+            PURZ_RENDERED_IMAGES.pop(node_id, None)
+
         elif node_id and node_id in PURZ_RENDERED_IMAGES:
             rendered_frames = PURZ_RENDERED_IMAGES[node_id]
             if rendered_frames and len(rendered_frames) > 0:

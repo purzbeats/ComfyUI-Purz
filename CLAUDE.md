@@ -428,6 +428,74 @@ nodeType.prototype.onExecuted = function(message) {
 };
 ```
 
+### Widget Cleanup and Disposal
+Proper cleanup is essential to prevent memory leaks, especially for WebGL contexts.
+
+**Track widget instances:**
+```javascript
+const widgetInstances = new Map();  // node.id -> widget instance
+```
+
+**Add onRemove handler to DOM widget:**
+```javascript
+domWidget.onRemove = () => {
+    const instance = widgetInstances.get(node.id);
+    if (instance) {
+        instance.dispose();
+        widgetInstances.delete(node.id);
+    }
+};
+```
+
+**Implement dispose() in widget class:**
+```javascript
+dispose() {
+    // Stop animations
+    this._stopAnimationLoop();
+    this._stopPlayback();
+
+    // Clean up WebGL
+    if (this.engine) {
+        this.engine.cleanup();
+        this.engine = null;
+    }
+
+    // Clear caches
+    this.loadedFrames = [];
+    this.sourceImage = null;
+
+    // Remove DOM
+    if (this.container?.parentNode) {
+        this.container.parentNode.removeChild(this.container);
+    }
+}
+```
+
+**FilterEngine.cleanup() releases WebGL resources:**
+```javascript
+cleanup() {
+    const gl = this.gl;
+    if (!gl) return;
+
+    // Delete framebuffers and textures
+    for (const fb of this.framebuffers) {
+        gl.deleteFramebuffer(fb.framebuffer);
+        gl.deleteTexture(fb.texture);
+    }
+
+    // Delete buffers and programs
+    gl.deleteBuffer(this.positionBuffer);
+    gl.deleteBuffer(this.texCoordBuffer);
+    for (const program of Object.values(this.programs)) {
+        gl.deleteProgram(program);
+    }
+
+    // Lose context to free GPU memory
+    const loseContext = gl.getExtension('WEBGL_lose_context');
+    if (loseContext) loseContext.loseContext();
+}
+```
+
 ## Planning & Roadmap
 
 Development plans are tracked in `plan.md` at the project root. Keep `plan.md` and the Roadmap section in `README.md` synchronized when making updates to either.

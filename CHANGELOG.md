@@ -4,6 +4,27 @@ All notable changes to ComfyUI-Purz are documented here. This includes every cha
 
 ## [Unreleased]
 
+## [1.6.1] - 2025-01-26
+
+### Fixed
+- **Memory leak fix** - Interactive Filter now properly cleans up WebGL resources when node is deleted
+  - Added `cleanup()` method to `FilterEngine` class (deletes textures, buffers, programs, framebuffers, loses WebGL context)
+  - Added `dispose()` method to `InteractiveFilterWidget` class (stops animations, clears playback, calls engine cleanup, clears caches)
+  - Added `domWidget.onRemove` handler to call dispose when node is removed from canvas
+  - Added `widgetInstances` Map to track widget instances by node ID for proper cleanup
+  - Follows ComfyUI frontend integration best practices per COMFYUI_FRONTEND_INTEGRATION_GUIDE.md
+- **DOM widget overflow fix** - Interactive Filter UI controls no longer break out of node bounds in LiteGraph
+  - Added `overflow: hidden` and `height: 100%` to main container CSS
+  - Added `max-height: 300px` to layers list to make it scrollable when many effects
+  - Improved `computeSize()` to accurately calculate height based on all UI elements
+  - Updated `fitHeight()` to set explicit container height
+  - Increased padding/buffer values to prevent bottom squishing
+- **Batch processing timing fix** - Frames are now properly processed through filters before being output
+  - Backend now ALWAYS signals frontend and waits for response (not relying on pre-synced layer state)
+  - Frontend immediately responds with empty frames array when no filters are enabled
+  - Fixes race condition where layers might not be synced due to 300ms debounce
+  - **Fixed in both V1 and V3 versions** of InteractiveImageFilter
+
 ## [1.6.0] - 2025-12-08
 
 ### Added

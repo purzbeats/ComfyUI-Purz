@@ -2,6 +2,43 @@
 
 ## Roadmap
 
+### Code Quality & Refactoring (Priority: High)
+
+- [x] **Extract Common Utilities** - DRY up duplicated code
+  - [x] Create `utils.py` with shared `hex_to_rgb()` function (currently copy-pasted 10 times)
+  - [x] Move color conversion helpers to utils module
+  - [x] Centralize image format conversion helpers (tensor↔numpy↔PIL)
+
+- [x] **Vectorize Pixel Loops** - Fix critical performance issues
+  - [x] Refactor `hueShift` effect to use NumPy vectorized HSV conversion (currently O(n²) Python loop)
+  - [x] Refactor `colorize` effect similarly
+  - [x] Removed inline `colorsys` imports (replaced with vectorized utils functions)
+
+- [x] **Filter Registry Pattern** - Break up the 35-branch `apply_filter()` monster
+  - [x] Create filter registry dict mapping effect names to handler functions
+  - [x] Extract each filter into its own function (41 handlers)
+  - [x] Enable easier testing of individual effects
+
+- [ ] **Split JavaScript File** - Break up 2000+ line `purz_interactive.js`
+  - [ ] Extract `FilterEngine` class to `filter_engine.js`
+  - [ ] Extract `CustomShaderLoader` to `shader_loader.js`
+  - [ ] Extract `PRESETS` and preset logic to `presets.js`
+  - [ ] Extract `EFFECTS` definitions to `effects.js`
+  - [ ] Keep widget/UI logic in main file
+
+- [ ] **Clean Up Orphaned Files** - Remove or integrate `_v3.py` files
+  - [ ] Evaluate `animated_patterns_v3.py`, `image_effects_v3.py`, `interactive_filters_v3.py`, `pattern_generators_v3.py`
+  - [ ] Either complete V3 migration or delete unused files
+
+- [ ] **Document Magic Numbers** - Add constants with meaningful names
+  - [ ] Replace inline `0.3`, `0.5` etc with named constants
+  - [ ] Document the reasoning behind color correction coefficients
+
+- [ ] **Global State Cleanup** - Add proper lifecycle management
+  - [ ] Document which thread/context writes to each global dict
+  - [ ] Add cleanup on node deletion to prevent memory leaks
+  - [ ] Consider using WeakValueDictionary or explicit cleanup hooks
+
 ### Interactive Image Filter Enhancements
 
 - [x] **Custom WebGL Effects** - Break out Interactive Image Filter effects into separate shader files, allowing users to create and share their own custom WebGL effects

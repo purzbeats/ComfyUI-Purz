@@ -3,6 +3,8 @@ import numpy as np
 import math
 from PIL import Image, ImageDraw
 
+from .utils import hex_to_rgb
+
 
 class TextureMath:
     """Mathematical operations for combining textures, like Blender's Math node"""
@@ -287,17 +289,13 @@ class AnimatedCheckerboardPattern:
     FUNCTION = "generate_animated_pattern"
     CATEGORY = "Purz/Patterns/Animated"
     
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    
     def generate_animated_pattern(self, width, height, square_size, color1, color2, frame_count, 
                                 wave_type, wave_scale, wave_direction, wave_shape, math_operation, 
                                 wave_factor, reverse_phase, color_ramp_type):
         result = []
         
-        rgb1 = self.hex_to_rgb(color1)
-        rgb2 = self.hex_to_rgb(color2)
+        rgb1 = hex_to_rgb(color1)
+        rgb2 = hex_to_rgb(color2)
         
         # Generate base checkerboard pattern (0-1 texture)
         base_pattern = PatternTextureGenerator.generate_checkerboard(width, height, square_size)
@@ -364,17 +362,13 @@ class AnimatedStripesPattern:
     FUNCTION = "generate_animated_pattern"
     CATEGORY = "Purz/Patterns/Animated"
     
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    
     def generate_animated_pattern(self, width, height, stripe_width, direction, color1, color2, frame_count,
                                 wave_type, wave_scale, wave_direction, wave_shape, math_operation, 
                                 wave_factor, reverse_phase, color_ramp_type):
         result = []
         
-        rgb1 = self.hex_to_rgb(color1)
-        rgb2 = self.hex_to_rgb(color2)
+        rgb1 = hex_to_rgb(color1)
+        rgb2 = hex_to_rgb(color2)
         
         # Generate base stripe pattern (0-1 texture)
         base_pattern = PatternTextureGenerator.generate_stripes(width, height, stripe_width, direction)
@@ -442,17 +436,13 @@ class AnimatedPolkaDotPattern:
     FUNCTION = "generate_animated_pattern"
     CATEGORY = "Purz/Patterns/Animated"
     
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    
     def generate_animated_pattern(self, width, height, dot_radius, spacing, background_color, dot_color, 
                                 stagger, frame_count, wave_type, wave_scale, wave_direction, wave_shape, 
                                 math_operation, wave_factor, reverse_phase, color_ramp_type):
         result = []
         
-        bg_rgb = self.hex_to_rgb(background_color)
-        dot_rgb = self.hex_to_rgb(dot_color)
+        bg_rgb = hex_to_rgb(background_color)
+        dot_rgb = hex_to_rgb(dot_color)
         
         # Generate base polka dot pattern (0-1 texture)
         base_pattern = PatternTextureGenerator.generate_polka_dots(width, height, dot_radius, spacing, stagger)
@@ -520,10 +510,6 @@ class AnimatedNoisePattern:
     FUNCTION = "generate_animated_pattern"
     CATEGORY = "Purz/Patterns/Animated"
     
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    
     def smooth_noise(self, width, height, seed):
         """Generate smooth noise using nearest-neighbor sampling (no interpolation)"""
         np.random.seed(seed)
@@ -550,8 +536,8 @@ class AnimatedNoisePattern:
                                 wave_factor, reverse_phase, color1, color2, color_ramp_type):
         result = []
         
-        rgb1 = self.hex_to_rgb(color1)
-        rgb2 = self.hex_to_rgb(color2)
+        rgb1 = hex_to_rgb(color1)
+        rgb2 = hex_to_rgb(color2)
         
         for frame in range(frame_count):
             current_seed = seed + frame * 10

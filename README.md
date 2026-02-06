@@ -228,6 +228,14 @@ You can create your own WebGL filter effects:
 
 ## 📋 Changelog
 
+### v1.7.0 (2026-02-05)
+- **Code Quality Refactor** - Major internal cleanup with no user-facing behavior changes
+  - Extracted shared `utils.py` module consolidating 10 duplicate helper implementations
+  - Reduced V3 Interactive Filter from 657 lines to 51 lines by eliminating duplicated code
+  - Replaced 400-line if/elif filter chain with clean registry-based dispatch pattern
+  - Correct V3 API usage (`cls.hidden.unique_id`) replaces hacky fallback logic
+- **Performance** - Vectorized HSV conversion for `hueShift` and `colorize` effects (massive speedup on large images)
+
 ### v1.6.1 (2025-01-26)
 - **Memory Leak Fix** - Interactive Filter now properly cleans up WebGL resources when node is deleted
 - **DOM Widget Overflow Fix** - UI controls no longer break out of node bounds in LiteGraph

@@ -3,6 +3,8 @@ import numpy as np
 import math
 from PIL import Image, ImageDraw
 
+from .utils import hex_to_rgb, pil_to_numpy, numpy_to_tensor
+
 
 class CheckerboardPattern:
     """
@@ -27,15 +29,11 @@ class CheckerboardPattern:
     FUNCTION = "generate_pattern"
     CATEGORY = "Purz/Patterns/Basic"
     
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    
     def generate_pattern(self, width, height, square_size, color1, color2, batch_size):
         result = []
         
-        rgb1 = self.hex_to_rgb(color1)
-        rgb2 = self.hex_to_rgb(color2)
+        rgb1 = hex_to_rgb(color1)
+        rgb2 = hex_to_rgb(color2)
         
         for _ in range(batch_size):
             img = Image.new('RGB', (width, height))
@@ -49,8 +47,7 @@ class CheckerboardPattern:
                         color = rgb2
                     draw.rectangle([x, y, x + square_size, y + square_size], fill=color)
             
-            img_np = np.array(img).astype(np.float32) / 255.0
-            img_tensor = torch.from_numpy(img_np)
+            img_tensor = numpy_to_tensor(pil_to_numpy(img))
             result.append(img_tensor)
         
         result = torch.stack(result)
@@ -81,15 +78,11 @@ class StripesPattern:
     FUNCTION = "generate_pattern"
     CATEGORY = "Purz/Patterns/Basic"
     
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    
     def generate_pattern(self, width, height, stripe_width, direction, color1, color2, batch_size):
         result = []
         
-        rgb1 = self.hex_to_rgb(color1)
-        rgb2 = self.hex_to_rgb(color2)
+        rgb1 = hex_to_rgb(color1)
+        rgb2 = hex_to_rgb(color2)
         
         for _ in range(batch_size):
             img = Image.new('RGB', (width, height))
@@ -129,8 +122,7 @@ class StripesPattern:
                               (max(0, i - height), height), (i, 0)]
                     draw.polygon(points2, fill=rgb2)
             
-            img_np = np.array(img).astype(np.float32) / 255.0
-            img_tensor = torch.from_numpy(img_np)
+            img_tensor = numpy_to_tensor(pil_to_numpy(img))
             result.append(img_tensor)
         
         result = torch.stack(result)
@@ -162,15 +154,11 @@ class PolkaDotPattern:
     FUNCTION = "generate_pattern"
     CATEGORY = "Purz/Patterns/Basic"
     
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    
     def generate_pattern(self, width, height, dot_radius, spacing, background_color, dot_color, stagger, batch_size):
         result = []
         
-        bg_rgb = self.hex_to_rgb(background_color)
-        dot_rgb = self.hex_to_rgb(dot_color)
+        bg_rgb = hex_to_rgb(background_color)
+        dot_rgb = hex_to_rgb(dot_color)
         
         for _ in range(batch_size):
             img = Image.new('RGB', (width, height), bg_rgb)
@@ -191,8 +179,7 @@ class PolkaDotPattern:
                 y += spacing
                 row += 1
             
-            img_np = np.array(img).astype(np.float32) / 255.0
-            img_tensor = torch.from_numpy(img_np)
+            img_tensor = numpy_to_tensor(pil_to_numpy(img))
             result.append(img_tensor)
         
         result = torch.stack(result)
@@ -224,15 +211,11 @@ class GridPattern:
     FUNCTION = "generate_pattern"
     CATEGORY = "Purz/Patterns/Basic"
     
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    
     def generate_pattern(self, width, height, grid_size, line_width, background_color, line_color, style, batch_size):
         result = []
         
-        bg_rgb = self.hex_to_rgb(background_color)
-        line_rgb = self.hex_to_rgb(line_color)
+        bg_rgb = hex_to_rgb(background_color)
+        line_rgb = hex_to_rgb(line_color)
         
         for _ in range(batch_size):
             img = Image.new('RGB', (width, height), bg_rgb)
@@ -260,8 +243,7 @@ class GridPattern:
                     for x in range(0, width, 10):
                         draw.ellipse([x - line_width, y - line_width, x + line_width, y + line_width], fill=line_rgb)
             
-            img_np = np.array(img).astype(np.float32) / 255.0
-            img_tensor = torch.from_numpy(img_np)
+            img_tensor = numpy_to_tensor(pil_to_numpy(img))
             result.append(img_tensor)
         
         result = torch.stack(result)
@@ -437,10 +419,6 @@ class HexagonPattern:
     FUNCTION = "generate_pattern"
     CATEGORY = "Purz/Patterns/Basic"
     
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    
     def draw_hexagon(self, draw, center_x, center_y, size, fill_color, line_color, line_width, filled):
         # Calculate hexagon vertices
         vertices = []
@@ -463,9 +441,9 @@ class HexagonPattern:
                         background_color, hexagon_color, line_color, filled, batch_size):
         result = []
         
-        bg_rgb = self.hex_to_rgb(background_color)
-        hex_rgb = self.hex_to_rgb(hexagon_color)
-        line_rgb = self.hex_to_rgb(line_color)
+        bg_rgb = hex_to_rgb(background_color)
+        hex_rgb = hex_to_rgb(hexagon_color)
+        line_rgb = hex_to_rgb(line_color)
         
         # Calculate hexagon dimensions
         hex_width = hexagon_size * 2
@@ -492,8 +470,7 @@ class HexagonPattern:
                 y += hex_height / 2
                 row += 1
             
-            img_np = np.array(img).astype(np.float32) / 255.0
-            img_tensor = torch.from_numpy(img_np)
+            img_tensor = numpy_to_tensor(pil_to_numpy(img))
             result.append(img_tensor)
         
         result = torch.stack(result)
@@ -524,15 +501,11 @@ class GradientPattern:
     FUNCTION = "generate_pattern"
     CATEGORY = "Purz/Patterns/Basic"
     
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    
     def generate_pattern(self, width, height, gradient_type, direction, color1, color2, batch_size):
         result = []
         
-        rgb1 = np.array(self.hex_to_rgb(color1)) / 255.0
-        rgb2 = np.array(self.hex_to_rgb(color2)) / 255.0
+        rgb1 = np.array(hex_to_rgb(color1)) / 255.0
+        rgb2 = np.array(hex_to_rgb(color2)) / 255.0
         
         for _ in range(batch_size):
             img_np = np.zeros((height, width, 3), dtype=np.float32)

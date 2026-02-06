@@ -4,6 +4,33 @@ All notable changes to ComfyUI-Purz are documented here. This includes every cha
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-02-05
+
+### Changed
+- Extracted common utilities to `utils.py` module:
+  - `hex_to_rgb()`, `hex_to_rgb_normalized()` - consolidated from 10 duplicate implementations
+  - `tensor_to_numpy()`, `tensor_to_numpy_uint8()`, `numpy_to_tensor()` - tensor/numpy conversion
+  - `tensor_to_pil()`, `pil_to_tensor()`, `pil_to_numpy()`, `numpy_uint8_to_pil()` - PIL conversion
+- Updated `pattern_generators.py`, `animated_patterns.py`, and `image_effects.py` to use shared utilities
+
+### Refactored
+- **V3 Interactive Filter rewrite** - Reduced `interactive_filters_v3.py` from 657 lines to 51 lines
+  - Extracted `process_interactive_filter()` shared helper into `interactive_filters.py` for use by both V1 and V3
+  - Eliminated 390 lines of duplicated filter implementations (V3 now imports from V1's registry)
+  - Eliminated 80 lines of duplicated batch processing logic (V3 now calls shared helper)
+  - Replaced 25 lines of hacky `unique_id` fallback logic with `cls.hidden.unique_id` (correct V3 pattern)
+  - Removed 18 debug `print()` statements and unnecessary imports
+- **Filter Registry Pattern** - Replaced 400-line if/elif chain in `apply_filter()` with registry-based dispatch
+  - Extracted 41 filter effects into individual handler functions (`_filter_desaturate`, `_filter_brightness`, etc.)
+  - Created `FILTER_REGISTRY` dict mapping effect names to handler functions
+  - Added shared helper functions: `_compute_luminance()`, `_to_grayscale_rgb()`, `LUMA_COEFFS`
+  - Each handler has consistent signature: `(result, params, original) -> np.ndarray`
+
+### Performance
+- **Vectorized HSV conversion** - `hueShift` and `colorize` effects now use NumPy vectorized operations instead of Python pixel loops
+  - Added `rgb_to_hsv_vectorized()` and `hsv_to_rgb_vectorized()` to `utils.py`
+  - Eliminates O(h×w) Python function calls per image - massive speedup for large images
+
 ## [1.6.1] - 2025-01-26
 
 ### Fixed

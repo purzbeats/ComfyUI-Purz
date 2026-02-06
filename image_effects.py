@@ -4,6 +4,8 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageEnhance
 import cv2
 
+from .utils import tensor_to_numpy_uint8, numpy_to_tensor, tensor_to_pil, pil_to_tensor
+
 
 class ImageToBlackWhite:
     """
@@ -73,16 +75,12 @@ class ImageRotate:
         result = []
         
         for i in range(batch_size):
-            # Convert tensor to PIL Image
-            img_tensor = image[i]
-            img_np = (img_tensor.cpu().numpy() * 255).astype(np.uint8)
-            img_pil = Image.fromarray(img_np, mode='RGB')
+            img_pil = tensor_to_pil(image[i])
             
             # Set background color
             if background_color == "white":
                 bg_color = (255, 255, 255)
             elif background_color == "transparent":
-                # Convert to RGBA for transparency
                 img_pil = img_pil.convert('RGBA')
                 bg_color = (0, 0, 0, 0)
             else:  # black
@@ -93,16 +91,11 @@ class ImageRotate:
             
             # Convert back to RGB if it was RGBA
             if rotated.mode == 'RGBA':
-                # Create a white background
                 background = Image.new('RGB', rotated.size, (0, 0, 0))
                 background.paste(rotated, mask=rotated.split()[3])
                 rotated = background
             
-            # Convert back to tensor
-            rotated_np = np.array(rotated).astype(np.float32) / 255.0
-            rotated_tensor = torch.from_numpy(rotated_np)
-            
-            result.append(rotated_tensor)
+            result.append(pil_to_tensor(rotated))
         
         result = torch.stack(result)
         return (result,)
@@ -133,27 +126,22 @@ class ImageBlur:
         result = []
         
         for i in range(batch_size):
-            img_tensor = image[i]
-            img_np = (img_tensor.cpu().numpy() * 255).astype(np.uint8)
+            img_np = tensor_to_numpy_uint8(image[i])
             
             if blur_type == "gaussian":
-                # Gaussian blur
                 kernel_size = int(blur_radius * 2) | 1  # Ensure odd number
                 blurred = cv2.GaussianBlur(img_np, (kernel_size, kernel_size), blur_radius)
             elif blur_type == "box":
-                # Box blur
                 kernel_size = int(blur_radius) | 1
                 blurred = cv2.boxFilter(img_np, -1, (kernel_size, kernel_size))
             else:  # motion
-                # Motion blur
                 kernel_size = int(blur_radius)
                 kernel = np.zeros((kernel_size, kernel_size))
                 kernel[int((kernel_size-1)/2), :] = np.ones(kernel_size)
                 kernel = kernel / kernel_size
                 blurred = cv2.filter2D(img_np, -1, kernel)
             
-            blurred_tensor = torch.from_numpy(blurred.astype(np.float32) / 255.0)
-            result.append(blurred_tensor)
+            result.append(numpy_to_tensor(blurred))
         
         result = torch.stack(result)
         return (result,)
@@ -185,12 +173,8 @@ class ColorAdjust:
         result = []
         
         for i in range(batch_size):
-            # Convert tensor to PIL Image
-            img_tensor = image[i]
-            img_np = (img_tensor.cpu().numpy() * 255).astype(np.uint8)
-            img_pil = Image.fromarray(img_np, mode='RGB')
+            img_pil = tensor_to_pil(image[i])
             
-            # Apply adjustments
             if brightness != 1.0:
                 enhancer = ImageEnhance.Brightness(img_pil)
                 img_pil = enhancer.enhance(brightness)
@@ -203,11 +187,7 @@ class ColorAdjust:
                 enhancer = ImageEnhance.Color(img_pil)
                 img_pil = enhancer.enhance(saturation)
             
-            # Convert back to tensor
-            adjusted_np = np.array(img_pil).astype(np.float32) / 255.0
-            adjusted_tensor = torch.from_numpy(adjusted_np)
-            
-            result.append(adjusted_tensor)
+            result.append(pil_to_tensor(img_pil))
         
         result = torch.stack(result)
         return (result,)
@@ -311,32 +291,23 @@ class EdgeDetect:
         result = []
         
         for i in range(batch_size):
-            img_tensor = image[i]
-            img_np = (img_tensor.cpu().numpy() * 255).astype(np.uint8)
-            
-            # Convert to grayscale for edge detection
+            img_np = tensor_to_numpy_uint8(image[i])
             gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
             
             if method == "sobel":
-                # Sobel edge detection
                 sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
                 sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
                 edges = np.sqrt(sobelx**2 + sobely**2)
                 edges = np.clip(edges, 0, 255).astype(np.uint8)
             elif method == "canny":
-                # Canny edge detection
                 edges = cv2.Canny(gray, threshold_low, threshold_high)
             else:  # laplacian
-                # Laplacian edge detection
                 edges = cv2.Laplacian(gray, cv2.CV_64F)
                 edges = np.absolute(edges)
                 edges = np.clip(edges, 0, 255).astype(np.uint8)
             
-            # Convert single channel to RGB
             edges_rgb = cv2.cvtColor(edges, cv2.COLOR_GRAY2RGB)
-            
-            edges_tensor = torch.from_numpy(edges_rgb.astype(np.float32) / 255.0)
-            result.append(edges_tensor)
+            result.append(numpy_to_tensor(edges_rgb))
         
         result = torch.stack(result)
         return (result,)

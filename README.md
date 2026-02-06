@@ -40,6 +40,10 @@ A powerful real-time image filter system with WebGL preview:
 - **Layer-Based System** - Stack multiple effects with individual opacity
 - **Drag & Drop Reordering** - Easily rearrange effect layers
 - **Real-Time Preview** - See changes instantly via WebGL shaders
+- **Effect Search + Favorites** - Fuzzy search, star favorites, and recently used effects
+- **Undo/Redo** - Full undo/redo with Ctrl+Z / Ctrl+Shift+Z
+- **A/B Split Preview** - Draggable before/after comparison divider
+- **Mask Support** - Optional MASK input for selective filtering
 - **Non-Destructive** - Adjust filters without re-running the workflow
 - **Pipeline Output** - Filtered result outputs to the workflow for further processing
 - **Video Batch Support** - Process entire video sequences with playback preview
@@ -205,8 +209,11 @@ Future plans for ComfyUI-Purz:
 - [x] **More Effects** - Expanded to 120+ effects with 80 new shader effects in v1.5.0
 - [x] **More Presets** - Added 16 new presets (Cinematic, Vintage, Stylized, Enhancement)
 - [x] **Layer Reordering** - Drag and drop to re-arrange effect layers
+- [x] **Effect Search + Favorites** - Searchable effect picker with fuzzy search, favorites, and recently used
+- [x] **Undo/Redo** - Full undo/redo system with Ctrl+Z / Ctrl+Shift+Z
+- [x] **A/B Split Preview** - Before/after comparison with draggable divider
+- [x] **Mask Support** - Apply filter effects selectively using masks
 - [ ] **Native UI Refactor** - Refactor effects layers window to use native ComfyUI elements for proper resize on V1/V2
-- [ ] **Mask Support** - Apply filter effects selectively using masks
 
 ### Creating Custom Effects
 
@@ -227,6 +234,13 @@ You can create your own WebGL filter effects:
 4. Restart ComfyUI - your effect will appear in the dropdown
 
 ## 📋 Changelog
+
+### v1.8.0 (2026-02-05)
+- **Effect Search + Favorites + Recently Used** - Searchable effect picker with fuzzy search, star favorites, recently used section, collapsible categories, and keyboard navigation
+- **Undo/Redo System** - Full undo/redo with Ctrl+Z / Ctrl+Shift+Z, toolbar buttons, 50-state stack
+- **A/B Split Preview** - Draggable before/after divider on preview canvas; toggle between Split, Original, and Filtered views
+- **Mask Support** - Optional MASK input for selective filtering (per-pixel blend, works in V1 and V3)
+- **Modular Frontend** - Split monolithic JS into 5 ES modules for maintainability (zero behavior change)
 
 ### v1.7.0 (2026-02-05)
 - **Code Quality Refactor** - Major internal cleanup with no user-facing behavior changes

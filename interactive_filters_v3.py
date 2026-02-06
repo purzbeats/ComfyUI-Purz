@@ -26,6 +26,7 @@ class InteractiveImageFilter(io.ComfyNode):
             is_output_node=True,
             inputs=[
                 io.Image.Input("image"),
+                io.Mask.Input("mask", optional=True),
             ],
             outputs=[
                 io.Image.Output(display_name="image"),
@@ -38,13 +39,14 @@ class InteractiveImageFilter(io.ComfyNode):
         return float("nan")  # Always re-execute to pick up filter changes
 
     @classmethod
-    def execute(cls, image, **kwargs) -> io.NodeOutput:
+    def execute(cls, image, mask=None, **kwargs) -> io.NodeOutput:
         node_id = str(cls.hidden.unique_id) if cls.hidden and cls.hidden.unique_id else None
         prefix = "_purz_filter_" + ''.join(random.choice("abcdefghijklmnopqrstuvwxyz") for _ in range(5))
 
         output_image, results = process_interactive_filter(
             image, node_id,
-            folder_paths.get_temp_directory(), "temp", prefix, 1
+            folder_paths.get_temp_directory(), "temp", prefix, 1,
+            mask=mask
         )
 
         return io.NodeOutput(output_image, ui={"purz_images": results})

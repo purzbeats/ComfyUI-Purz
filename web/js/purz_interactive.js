@@ -10,2595 +10,10 @@
 
 import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
-
-// ============================================================================
-// CUSTOM SHADER LOADER
-// ============================================================================
-
-/**
- * Loads custom shaders from the shaders/custom/ directory.
- * Custom shaders are loaded on-demand and merged into EFFECTS.
- */
-const CustomShaderLoader = {
-    loaded: false,
-    customEffects: {},
-    shaderCache: {},
-
-    /**
-     * Load the shader manifest and discover custom shaders.
-     */
-    async loadManifest() {
-        if (this.loaded) return;
-
-        try {
-            const response = await api.fetchApi("/purz/shaders/manifest");
-            if (response.ok) {
-                const manifest = await response.json();
-
-                // Find custom effects in manifest
-                for (const [key, effect] of Object.entries(manifest.effects)) {
-                    if (effect.isCustom) {
-                        this.customEffects[key] = {
-                            name: effect.name,
-                            category: effect.category || "Custom",
-                            shaderPath: effect.shader,
-                            shader: null, // Will be loaded on demand
-                            needsResolution: effect.needs?.includes("resolution") || false,
-                            needsSeed: effect.needs?.includes("seed") || false,
-                            params: effect.params || [],
-                            isCustom: true
-                        };
-                    }
-                }
-
-                this.loaded = true;
-                console.log(`[Purz] Loaded ${Object.keys(this.customEffects).length} custom effects`);
-            }
-        } catch (e) {
-            console.warn("[Purz] Could not load shader manifest:", e);
-        }
-    },
-
-    /**
-     * Load shader source from file.
-     */
-    async loadShaderSource(shaderPath) {
-        if (this.shaderCache[shaderPath]) {
-            return this.shaderCache[shaderPath];
-        }
-
-        try {
-            const response = await api.fetchApi(`/purz/shaders/file/${shaderPath}`);
-            if (response.ok) {
-                const source = await response.text();
-                this.shaderCache[shaderPath] = source;
-                return source;
-            }
-        } catch (e) {
-            console.error(`[Purz] Failed to load shader: ${shaderPath}`, e);
-        }
-        return null;
-    },
-
-    /**
-     * Get effect definition, loading shader if needed.
-     */
-    async getEffect(effectKey) {
-        const effect = this.customEffects[effectKey];
-        if (!effect) return null;
-
-        // Load shader source if not already loaded
-        if (!effect.shader && effect.shaderPath) {
-            effect.shader = await this.loadShaderSource(effect.shaderPath);
-        }
-
-        return effect;
-    },
-
-    /**
-     * Get all custom effect keys.
-     */
-    getCustomEffectKeys() {
-        return Object.keys(this.customEffects);
-    },
-
-    /**
-     * Check if an effect is custom.
-     */
-    isCustomEffect(effectKey) {
-        return effectKey in this.customEffects;
-    }
-};
-
-// ============================================================================
-// GLSL SHADERS
-// ============================================================================
-
-const VERTEX_SHADER = `
-    attribute vec2 a_position;
-    attribute vec2 a_texCoord;
-    varying vec2 v_texCoord;
-    void main() {
-        gl_Position = vec4(a_position, 0.0, 1.0);
-        v_texCoord = a_texCoord;
-    }
-`;
-
-// Passthrough shader - just copies the texture
-const PASSTHROUGH_SHADER = `
-    precision mediump float;
-    uniform sampler2D u_image;
-    varying vec2 v_texCoord;
-    void main() {
-        gl_FragColor = texture2D(u_image, v_texCoord);
-    }
-`;
-
-// ============================================================================
-// EFFECT SHADERS
-// ============================================================================
-
-const EFFECT_SHADERS = {
-    // === BASIC ADJUSTMENTS ===
-    desaturate: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            vec3 desaturated = mix(color.rgb, vec3(gray), u_amount);
-            vec3 result = mix(color.rgb, desaturated, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    brightness: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec3 adjusted = clamp(color.rgb + vec3(u_amount), 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    contrast: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec3 adjusted = (color.rgb - 0.5) * (1.0 + u_amount) + 0.5;
-            adjusted = clamp(adjusted, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    exposure: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec3 adjusted = color.rgb * pow(2.0, u_amount);
-            adjusted = clamp(adjusted, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    gamma: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float g = 1.0 / max(u_amount, 0.01);
-            vec3 adjusted = pow(color.rgb, vec3(g));
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    vibrance: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float maxC = max(color.r, max(color.g, color.b));
-            float minC = min(color.r, min(color.g, color.b));
-            float sat = maxC - minC;
-            float amt = u_amount * (1.0 - sat);
-            float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            vec3 adjusted = mix(vec3(gray), color.rgb, 1.0 + amt);
-            adjusted = clamp(adjusted, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    saturation: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            vec3 adjusted = mix(vec3(gray), color.rgb, 1.0 + u_amount);
-            adjusted = clamp(adjusted, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    // === COLOR MANIPULATION ===
-    hueShift: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-
-        vec3 rgb2hsv(vec3 c) {
-            vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
-            vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-            vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-            float d = q.x - min(q.w, q.y);
-            float e = 1.0e-10;
-            return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-        }
-
-        vec3 hsv2rgb(vec3 c) {
-            vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-            vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-            return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-        }
-
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec3 hsv = rgb2hsv(color.rgb);
-            hsv.x = fract(hsv.x + u_amount);
-            vec3 adjusted = hsv2rgb(hsv);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    temperature: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec3 adjusted = color.rgb;
-            adjusted.r = clamp(color.r + u_amount * 0.3, 0.0, 1.0);
-            adjusted.b = clamp(color.b - u_amount * 0.3, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    tint: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec3 adjusted = color.rgb;
-            adjusted.g = clamp(color.g + u_amount * 0.3, 0.0, 1.0);
-            adjusted.r = clamp(color.r - u_amount * 0.15, 0.0, 1.0);
-            adjusted.b = clamp(color.b - u_amount * 0.15, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    colorize: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_hue;
-        uniform float u_saturation;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-
-        vec3 hsv2rgb(vec3 c) {
-            vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-            vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-            return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-        }
-
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            vec3 adjusted = hsv2rgb(vec3(u_hue, u_saturation, lum));
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    channelMixer: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_redShift;
-        uniform float u_greenShift;
-        uniform float u_blueShift;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec3 adjusted;
-            adjusted.r = clamp(color.r + u_redShift, 0.0, 1.0);
-            adjusted.g = clamp(color.g + u_greenShift, 0.0, 1.0);
-            adjusted.b = clamp(color.b + u_blueShift, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    // === TONE ADJUSTMENTS ===
-    highlights: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            float highlightMask = smoothstep(0.5, 1.0, lum);
-            vec3 adjusted = color.rgb + vec3(u_amount * highlightMask);
-            adjusted = clamp(adjusted, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    shadows: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            float shadowMask = 1.0 - smoothstep(0.0, 0.5, lum);
-            vec3 adjusted = color.rgb + vec3(u_amount * shadowMask);
-            adjusted = clamp(adjusted, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    whites: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            float whiteMask = smoothstep(0.7, 1.0, lum);
-            vec3 adjusted = color.rgb + vec3(u_amount * whiteMask);
-            adjusted = clamp(adjusted, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    blacks: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            float blackMask = 1.0 - smoothstep(0.0, 0.3, lum);
-            vec3 adjusted = color.rgb + vec3(u_amount * blackMask);
-            adjusted = clamp(adjusted, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    levels: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_blackPoint;
-        uniform float u_whitePoint;
-        uniform float u_midtones;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec3 adjusted = (color.rgb - u_blackPoint) / max(u_whitePoint - u_blackPoint, 0.001);
-            adjusted = clamp(adjusted, 0.0, 1.0);
-            adjusted = pow(adjusted, vec3(1.0 / max(u_midtones, 0.01)));
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    curves: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_shadows;
-        uniform float u_midtones;
-        uniform float u_highlights;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec3 c = color.rgb;
-            // S-curve approximation with control points
-            c = c + u_shadows * (1.0 - c) * (1.0 - c) * c;
-            c = c + u_midtones * c * (1.0 - c);
-            c = c + u_highlights * c * c * (1.0 - c);
-            c = clamp(c, 0.0, 1.0);
-            vec3 result = mix(color.rgb, c, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    // === BLUR & SHARPEN ===
-    blur: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 pixel = u_amount / u_resolution;
-            vec4 sum = vec4(0.0);
-            sum += texture2D(u_image, v_texCoord + vec2(-pixel.x, -pixel.y)) * 0.0625;
-            sum += texture2D(u_image, v_texCoord + vec2(0.0, -pixel.y)) * 0.125;
-            sum += texture2D(u_image, v_texCoord + vec2(pixel.x, -pixel.y)) * 0.0625;
-            sum += texture2D(u_image, v_texCoord + vec2(-pixel.x, 0.0)) * 0.125;
-            sum += texture2D(u_image, v_texCoord) * 0.25;
-            sum += texture2D(u_image, v_texCoord + vec2(pixel.x, 0.0)) * 0.125;
-            sum += texture2D(u_image, v_texCoord + vec2(-pixel.x, pixel.y)) * 0.0625;
-            sum += texture2D(u_image, v_texCoord + vec2(0.0, pixel.y)) * 0.125;
-            sum += texture2D(u_image, v_texCoord + vec2(pixel.x, pixel.y)) * 0.0625;
-            vec3 result = mix(color.rgb, sum.rgb, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    sharpen: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 pixel = 1.0 / u_resolution;
-            vec4 sum = vec4(0.0);
-            sum += texture2D(u_image, v_texCoord + vec2(-pixel.x, 0.0)) * -1.0;
-            sum += texture2D(u_image, v_texCoord + vec2(pixel.x, 0.0)) * -1.0;
-            sum += texture2D(u_image, v_texCoord + vec2(0.0, -pixel.y)) * -1.0;
-            sum += texture2D(u_image, v_texCoord + vec2(0.0, pixel.y)) * -1.0;
-            sum += texture2D(u_image, v_texCoord) * 5.0;
-            vec3 sharpened = mix(color.rgb, sum.rgb, u_amount);
-            sharpened = clamp(sharpened, 0.0, 1.0);
-            vec3 result = mix(color.rgb, sharpened, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    unsharpMask: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_threshold;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 pixel = 2.0 / u_resolution;
-            vec4 blur = vec4(0.0);
-            blur += texture2D(u_image, v_texCoord + vec2(-pixel.x, -pixel.y)) * 0.0625;
-            blur += texture2D(u_image, v_texCoord + vec2(0.0, -pixel.y)) * 0.125;
-            blur += texture2D(u_image, v_texCoord + vec2(pixel.x, -pixel.y)) * 0.0625;
-            blur += texture2D(u_image, v_texCoord + vec2(-pixel.x, 0.0)) * 0.125;
-            blur += texture2D(u_image, v_texCoord) * 0.25;
-            blur += texture2D(u_image, v_texCoord + vec2(pixel.x, 0.0)) * 0.125;
-            blur += texture2D(u_image, v_texCoord + vec2(-pixel.x, pixel.y)) * 0.0625;
-            blur += texture2D(u_image, v_texCoord + vec2(0.0, pixel.y)) * 0.125;
-            blur += texture2D(u_image, v_texCoord + vec2(pixel.x, pixel.y)) * 0.0625;
-            vec3 diff = color.rgb - blur.rgb;
-            float mask = step(u_threshold, length(diff));
-            vec3 sharpened = color.rgb + diff * u_amount * mask;
-            sharpened = clamp(sharpened, 0.0, 1.0);
-            vec3 result = mix(color.rgb, sharpened, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    // === STYLISTIC EFFECTS ===
-    vignette: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_softness;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 center = v_texCoord - 0.5;
-            float dist = length(center);
-            float vig = 1.0 - smoothstep(0.5 - u_softness, 0.5 + u_softness * 0.5, dist * (1.0 + u_amount));
-            vec3 adjusted = color.rgb * vig;
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    grain: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_size;
-        uniform float u_opacity;
-        uniform float u_seed;
-        varying vec2 v_texCoord;
-
-        float random(vec2 st) {
-            return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
-        }
-
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 st = v_texCoord * u_size + u_seed;
-            float noise = random(st) * 2.0 - 1.0;
-            vec3 adjusted = color.rgb + vec3(noise * u_amount);
-            adjusted = clamp(adjusted, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    posterize: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_levels;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float levels = max(2.0, floor(u_levels));
-            vec3 adjusted = floor(color.rgb * levels) / (levels - 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    threshold: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_threshold;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            vec3 adjusted = vec3(step(u_threshold, gray));
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    invert: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec3 inverted = 1.0 - color.rgb;
-            vec3 adjusted = mix(color.rgb, inverted, u_amount);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    sepia: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec3 sepia;
-            sepia.r = dot(color.rgb, vec3(0.393, 0.769, 0.189));
-            sepia.g = dot(color.rgb, vec3(0.349, 0.686, 0.168));
-            sepia.b = dot(color.rgb, vec3(0.272, 0.534, 0.131));
-            sepia = clamp(sepia, 0.0, 1.0);
-            vec3 adjusted = mix(color.rgb, sepia, u_amount);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    duotone: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_shadowR;
-        uniform float u_shadowG;
-        uniform float u_shadowB;
-        uniform float u_highlightR;
-        uniform float u_highlightG;
-        uniform float u_highlightB;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            vec3 shadow = vec3(u_shadowR, u_shadowG, u_shadowB);
-            vec3 highlight = vec3(u_highlightR, u_highlightG, u_highlightB);
-            vec3 adjusted = mix(shadow, highlight, gray);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    // === EDGE & DETAIL ===
-    emboss: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 pixel = 1.0 / u_resolution;
-            vec4 tl = texture2D(u_image, v_texCoord + vec2(-pixel.x, -pixel.y));
-            vec4 br = texture2D(u_image, v_texCoord + vec2(pixel.x, pixel.y));
-            vec3 embossed = vec3(0.5) + (br.rgb - tl.rgb) * u_amount;
-            embossed = clamp(embossed, 0.0, 1.0);
-            vec3 result = mix(color.rgb, embossed, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    edgeDetect: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 pixel = 1.0 / u_resolution;
-            vec4 h = vec4(0.0);
-            h -= texture2D(u_image, v_texCoord + vec2(-pixel.x, 0.0)) * 2.0;
-            h += texture2D(u_image, v_texCoord + vec2(pixel.x, 0.0)) * 2.0;
-            h -= texture2D(u_image, v_texCoord + vec2(-pixel.x, -pixel.y));
-            h -= texture2D(u_image, v_texCoord + vec2(-pixel.x, pixel.y));
-            h += texture2D(u_image, v_texCoord + vec2(pixel.x, -pixel.y));
-            h += texture2D(u_image, v_texCoord + vec2(pixel.x, pixel.y));
-            vec4 v = vec4(0.0);
-            v -= texture2D(u_image, v_texCoord + vec2(0.0, -pixel.y)) * 2.0;
-            v += texture2D(u_image, v_texCoord + vec2(0.0, pixel.y)) * 2.0;
-            v -= texture2D(u_image, v_texCoord + vec2(-pixel.x, -pixel.y));
-            v += texture2D(u_image, v_texCoord + vec2(-pixel.x, pixel.y));
-            v -= texture2D(u_image, v_texCoord + vec2(pixel.x, -pixel.y));
-            v += texture2D(u_image, v_texCoord + vec2(pixel.x, pixel.y));
-            vec3 edge = sqrt(h.rgb * h.rgb + v.rgb * v.rgb) * u_amount;
-            edge = clamp(edge, 0.0, 1.0);
-            vec3 result = mix(color.rgb, edge, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    clarity: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 pixel = 2.0 / u_resolution;
-            vec4 blur = vec4(0.0);
-            blur += texture2D(u_image, v_texCoord + vec2(-pixel.x, -pixel.y)) * 0.0625;
-            blur += texture2D(u_image, v_texCoord + vec2(0.0, -pixel.y)) * 0.125;
-            blur += texture2D(u_image, v_texCoord + vec2(pixel.x, -pixel.y)) * 0.0625;
-            blur += texture2D(u_image, v_texCoord + vec2(-pixel.x, 0.0)) * 0.125;
-            blur += texture2D(u_image, v_texCoord) * 0.25;
-            blur += texture2D(u_image, v_texCoord + vec2(pixel.x, 0.0)) * 0.125;
-            blur += texture2D(u_image, v_texCoord + vec2(-pixel.x, pixel.y)) * 0.0625;
-            blur += texture2D(u_image, v_texCoord + vec2(0.0, pixel.y)) * 0.125;
-            blur += texture2D(u_image, v_texCoord + vec2(pixel.x, pixel.y)) * 0.0625;
-            // High-pass filter for midtone contrast
-            vec3 highPass = color.rgb - blur.rgb;
-            float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            float midMask = 1.0 - abs(lum - 0.5) * 2.0;
-            vec3 adjusted = color.rgb + highPass * u_amount * midMask;
-            adjusted = clamp(adjusted, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    dehaze: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            // Simple dehaze: increase contrast and saturation in low-contrast areas
-            float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            vec3 adjusted = (color.rgb - 0.5) * (1.0 + u_amount * 0.5) + 0.5;
-            // Boost saturation slightly
-            adjusted = mix(vec3(gray), adjusted, 1.0 + u_amount * 0.3);
-            adjusted = clamp(adjusted, 0.0, 1.0);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    // === CREATIVE EFFECTS ===
-    pixelate: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_size;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float size = max(1.0, u_size);
-            vec2 pixelSize = size / u_resolution;
-            vec2 coord = pixelSize * floor(v_texCoord / pixelSize) + pixelSize * 0.5;
-            vec4 pixelated = texture2D(u_image, coord);
-            vec3 result = mix(color.rgb, pixelated.rgb, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    chromatic: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 dir = (v_texCoord - 0.5) * u_amount / u_resolution * 100.0;
-            float r = texture2D(u_image, v_texCoord + dir).r;
-            float g = texture2D(u_image, v_texCoord).g;
-            float b = texture2D(u_image, v_texCoord - dir).b;
-            vec3 adjusted = vec3(r, g, b);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    glitch: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_seed;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-
-        float random(vec2 st) {
-            return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
-        }
-
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float rnd = random(vec2(floor(v_texCoord.y * 20.0), u_seed));
-            float shift = (rnd - 0.5) * u_amount * 0.1;
-            if (rnd > 0.9) shift *= 3.0;
-            float r = texture2D(u_image, v_texCoord + vec2(shift, 0.0)).r;
-            float g = texture2D(u_image, v_texCoord).g;
-            float b = texture2D(u_image, v_texCoord - vec2(shift, 0.0)).b;
-            vec3 adjusted = vec3(r, g, b);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    halftone: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_size;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float size = max(2.0, u_size);
-            vec2 pos = v_texCoord * u_resolution / size;
-            vec2 center = (floor(pos) + 0.5) * size / u_resolution;
-            float dist = length(fract(pos) - 0.5);
-            float lum = dot(texture2D(u_image, center).rgb, vec3(0.299, 0.587, 0.114));
-            float radius = sqrt(1.0 - lum) * 0.5;
-            float dot = 1.0 - step(radius, dist);
-            vec3 adjusted = vec3(dot);
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    sketch: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 pixel = 1.0 / u_resolution;
-            // Sobel edge detection
-            float tl = dot(texture2D(u_image, v_texCoord + vec2(-pixel.x, -pixel.y)).rgb, vec3(0.299, 0.587, 0.114));
-            float t  = dot(texture2D(u_image, v_texCoord + vec2(0.0, -pixel.y)).rgb, vec3(0.299, 0.587, 0.114));
-            float tr = dot(texture2D(u_image, v_texCoord + vec2(pixel.x, -pixel.y)).rgb, vec3(0.299, 0.587, 0.114));
-            float l  = dot(texture2D(u_image, v_texCoord + vec2(-pixel.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
-            float r  = dot(texture2D(u_image, v_texCoord + vec2(pixel.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
-            float bl = dot(texture2D(u_image, v_texCoord + vec2(-pixel.x, pixel.y)).rgb, vec3(0.299, 0.587, 0.114));
-            float b  = dot(texture2D(u_image, v_texCoord + vec2(0.0, pixel.y)).rgb, vec3(0.299, 0.587, 0.114));
-            float br = dot(texture2D(u_image, v_texCoord + vec2(pixel.x, pixel.y)).rgb, vec3(0.299, 0.587, 0.114));
-            float gx = -tl - 2.0*l - bl + tr + 2.0*r + br;
-            float gy = -tl - 2.0*t - tr + bl + 2.0*b + br;
-            float edge = 1.0 - sqrt(gx*gx + gy*gy) * u_amount;
-            edge = clamp(edge, 0.0, 1.0);
-            vec3 result = mix(color.rgb, vec3(edge), u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    oilPaint: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_radius;
-        uniform float u_levels;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 pixel = 1.0 / u_resolution;
-            float levels = max(2.0, u_levels);
-
-            // Simplified oil paint: blur + posterize
-            vec3 sum = vec3(0.0);
-            float total = 0.0;
-            for (int x = -2; x <= 2; x++) {
-                for (int y = -2; y <= 2; y++) {
-                    vec2 offset = vec2(float(x), float(y)) * pixel * u_radius;
-                    sum += texture2D(u_image, v_texCoord + offset).rgb;
-                    total += 1.0;
-                }
-            }
-            vec3 blurred = sum / total;
-            vec3 adjusted = floor(blurred * levels) / levels;
-            vec3 result = mix(color.rgb, adjusted, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    // === LENS EFFECTS ===
-    lensDistort: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 center = v_texCoord - 0.5;
-            float dist = length(center);
-            float distortion = 1.0 + dist * dist * u_amount;
-            vec2 distorted = center * distortion + 0.5;
-            vec4 adjusted = texture2D(u_image, distorted);
-            if (distorted.x < 0.0 || distorted.x > 1.0 || distorted.y < 0.0 || distorted.y > 1.0) {
-                adjusted = color;
-            }
-            vec3 result = mix(color.rgb, adjusted.rgb, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    tiltShift: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_focus;
-        uniform float u_range;
-        uniform float u_blur;
-        uniform float u_opacity;
-        uniform vec2 u_resolution;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            float dist = abs(v_texCoord.y - u_focus);
-            float blurAmount = smoothstep(0.0, u_range, dist) * u_blur;
-            vec2 pixel = blurAmount / u_resolution;
-            vec4 sum = vec4(0.0);
-            sum += texture2D(u_image, v_texCoord + vec2(-pixel.x, -pixel.y)) * 0.0625;
-            sum += texture2D(u_image, v_texCoord + vec2(0.0, -pixel.y)) * 0.125;
-            sum += texture2D(u_image, v_texCoord + vec2(pixel.x, -pixel.y)) * 0.0625;
-            sum += texture2D(u_image, v_texCoord + vec2(-pixel.x, 0.0)) * 0.125;
-            sum += texture2D(u_image, v_texCoord) * 0.25;
-            sum += texture2D(u_image, v_texCoord + vec2(pixel.x, 0.0)) * 0.125;
-            sum += texture2D(u_image, v_texCoord + vec2(-pixel.x, pixel.y)) * 0.0625;
-            sum += texture2D(u_image, v_texCoord + vec2(0.0, pixel.y)) * 0.125;
-            sum += texture2D(u_image, v_texCoord + vec2(pixel.x, pixel.y)) * 0.0625;
-            vec3 result = mix(color.rgb, sum.rgb, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `,
-
-    radialBlur: `
-        precision mediump float;
-        uniform sampler2D u_image;
-        uniform float u_amount;
-        uniform float u_opacity;
-        varying vec2 v_texCoord;
-        void main() {
-            vec4 color = texture2D(u_image, v_texCoord);
-            vec2 center = v_texCoord - 0.5;
-            vec4 sum = vec4(0.0);
-            float samples = 10.0;
-            for (float i = 0.0; i < 10.0; i++) {
-                float scale = 1.0 - u_amount * 0.02 * i;
-                sum += texture2D(u_image, center * scale + 0.5);
-            }
-            sum /= samples;
-            vec3 result = mix(color.rgb, sum.rgb, u_opacity);
-            gl_FragColor = vec4(result, color.a);
-        }
-    `
-};
-
-// Effect definitions with parameters
-const EFFECTS = {
-    // === BASIC ADJUSTMENTS ===
-    desaturate: {
-        name: "Desaturate",
-        shader: EFFECT_SHADERS.desaturate,
-        category: "Basic",
-        params: [
-            { name: "amount", label: "Amount", min: 0, max: 1, default: 1, step: 0.01 }
-        ]
-    },
-    brightness: {
-        name: "Brightness",
-        shader: EFFECT_SHADERS.brightness,
-        category: "Basic",
-        params: [
-            { name: "amount", label: "Amount", min: -1, max: 1, default: 0, step: 0.01 }
-        ]
-    },
-    contrast: {
-        name: "Contrast",
-        shader: EFFECT_SHADERS.contrast,
-        category: "Basic",
-        params: [
-            { name: "amount", label: "Amount", min: -1, max: 2, default: 0, step: 0.01 }
-        ]
-    },
-    exposure: {
-        name: "Exposure",
-        shader: EFFECT_SHADERS.exposure,
-        category: "Basic",
-        params: [
-            { name: "amount", label: "Stops", min: -3, max: 3, default: 0, step: 0.05 }
-        ]
-    },
-    gamma: {
-        name: "Gamma",
-        shader: EFFECT_SHADERS.gamma,
-        category: "Basic",
-        params: [
-            { name: "amount", label: "Gamma", min: 0.2, max: 3, default: 1, step: 0.05 }
-        ]
-    },
-    vibrance: {
-        name: "Vibrance",
-        shader: EFFECT_SHADERS.vibrance,
-        category: "Basic",
-        params: [
-            { name: "amount", label: "Amount", min: -1, max: 1, default: 0, step: 0.01 }
-        ]
-    },
-    saturation: {
-        name: "Saturation",
-        shader: EFFECT_SHADERS.saturation,
-        category: "Basic",
-        params: [
-            { name: "amount", label: "Amount", min: -1, max: 2, default: 0, step: 0.01 }
-        ]
-    },
-
-    // === COLOR MANIPULATION ===
-    hueShift: {
-        name: "Hue Shift",
-        shader: EFFECT_SHADERS.hueShift,
-        category: "Color",
-        params: [
-            { name: "amount", label: "Hue", min: -0.5, max: 0.5, default: 0, step: 0.01 }
-        ]
-    },
-    temperature: {
-        name: "Temperature",
-        shader: EFFECT_SHADERS.temperature,
-        category: "Color",
-        params: [
-            { name: "amount", label: "Temp", min: -1, max: 1, default: 0, step: 0.01 }
-        ]
-    },
-    tint: {
-        name: "Tint",
-        shader: EFFECT_SHADERS.tint,
-        category: "Color",
-        params: [
-            { name: "amount", label: "Tint", min: -1, max: 1, default: 0, step: 0.01 }
-        ]
-    },
-    colorize: {
-        name: "Colorize",
-        shader: EFFECT_SHADERS.colorize,
-        category: "Color",
-        params: [
-            { name: "hue", label: "Hue", min: 0, max: 1, default: 0, step: 0.01 },
-            { name: "saturation", label: "Sat", min: 0, max: 1, default: 0.5, step: 0.01 }
-        ]
-    },
-    channelMixer: {
-        name: "Channel Mixer",
-        shader: EFFECT_SHADERS.channelMixer,
-        category: "Color",
-        params: [
-            { name: "redShift", label: "Red", min: -1, max: 1, default: 0, step: 0.01 },
-            { name: "greenShift", label: "Green", min: -1, max: 1, default: 0, step: 0.01 },
-            { name: "blueShift", label: "Blue", min: -1, max: 1, default: 0, step: 0.01 }
-        ]
-    },
-
-    // === TONE ADJUSTMENTS ===
-    highlights: {
-        name: "Highlights",
-        shader: EFFECT_SHADERS.highlights,
-        category: "Tone",
-        params: [
-            { name: "amount", label: "Amount", min: -1, max: 1, default: 0, step: 0.01 }
-        ]
-    },
-    shadows: {
-        name: "Shadows",
-        shader: EFFECT_SHADERS.shadows,
-        category: "Tone",
-        params: [
-            { name: "amount", label: "Amount", min: -1, max: 1, default: 0, step: 0.01 }
-        ]
-    },
-    whites: {
-        name: "Whites",
-        shader: EFFECT_SHADERS.whites,
-        category: "Tone",
-        params: [
-            { name: "amount", label: "Amount", min: -1, max: 1, default: 0, step: 0.01 }
-        ]
-    },
-    blacks: {
-        name: "Blacks",
-        shader: EFFECT_SHADERS.blacks,
-        category: "Tone",
-        params: [
-            { name: "amount", label: "Amount", min: -1, max: 1, default: 0, step: 0.01 }
-        ]
-    },
-    levels: {
-        name: "Levels",
-        shader: EFFECT_SHADERS.levels,
-        category: "Tone",
-        params: [
-            { name: "blackPoint", label: "Black", min: 0, max: 0.5, default: 0, step: 0.01 },
-            { name: "whitePoint", label: "White", min: 0.5, max: 1, default: 1, step: 0.01 },
-            { name: "midtones", label: "Mid", min: 0.1, max: 3, default: 1, step: 0.01 }
-        ]
-    },
-    curves: {
-        name: "Curves",
-        shader: EFFECT_SHADERS.curves,
-        category: "Tone",
-        params: [
-            { name: "shadows", label: "Shadows", min: -1, max: 1, default: 0, step: 0.01 },
-            { name: "midtones", label: "Mids", min: -1, max: 1, default: 0, step: 0.01 },
-            { name: "highlights", label: "Highs", min: -1, max: 1, default: 0, step: 0.01 }
-        ]
-    },
-
-    // === BLUR & SHARPEN ===
-    blur: {
-        name: "Blur",
-        shader: EFFECT_SHADERS.blur,
-        category: "Detail",
-        needsResolution: true,
-        params: [
-            { name: "amount", label: "Radius", min: 0, max: 20, default: 5, step: 0.5 }
-        ]
-    },
-    sharpen: {
-        name: "Sharpen",
-        shader: EFFECT_SHADERS.sharpen,
-        category: "Detail",
-        needsResolution: true,
-        params: [
-            { name: "amount", label: "Amount", min: 0, max: 2, default: 0.5, step: 0.05 }
-        ]
-    },
-    unsharpMask: {
-        name: "Unsharp Mask",
-        shader: EFFECT_SHADERS.unsharpMask,
-        category: "Detail",
-        needsResolution: true,
-        params: [
-            { name: "amount", label: "Amount", min: 0, max: 3, default: 1, step: 0.1 },
-            { name: "threshold", label: "Threshold", min: 0, max: 0.5, default: 0.1, step: 0.01 }
-        ]
-    },
-    clarity: {
-        name: "Clarity",
-        shader: EFFECT_SHADERS.clarity,
-        category: "Detail",
-        needsResolution: true,
-        params: [
-            { name: "amount", label: "Amount", min: -1, max: 2, default: 0, step: 0.05 }
-        ]
-    },
-    dehaze: {
-        name: "Dehaze",
-        shader: EFFECT_SHADERS.dehaze,
-        category: "Detail",
-        params: [
-            { name: "amount", label: "Amount", min: -1, max: 1, default: 0, step: 0.01 }
-        ]
-    },
-
-    // === STYLISTIC EFFECTS ===
-    vignette: {
-        name: "Vignette",
-        shader: EFFECT_SHADERS.vignette,
-        category: "Effects",
-        params: [
-            { name: "amount", label: "Amount", min: 0, max: 2, default: 0.5, step: 0.05 },
-            { name: "softness", label: "Soft", min: 0, max: 0.5, default: 0.2, step: 0.01 }
-        ]
-    },
-    grain: {
-        name: "Grain",
-        shader: EFFECT_SHADERS.grain,
-        category: "Effects",
-        needsSeed: true,
-        params: [
-            { name: "amount", label: "Amount", min: 0, max: 0.5, default: 0.1, step: 0.01 },
-            { name: "size", label: "Size", min: 1, max: 500, default: 100, step: 10 },
-            { name: "animate", label: "Animate", type: "checkbox", default: false }
-        ]
-    },
-    posterize: {
-        name: "Posterize",
-        shader: EFFECT_SHADERS.posterize,
-        category: "Effects",
-        params: [
-            { name: "levels", label: "Levels", min: 2, max: 32, default: 8, step: 1 }
-        ]
-    },
-    threshold: {
-        name: "Threshold",
-        shader: EFFECT_SHADERS.threshold,
-        category: "Effects",
-        params: [
-            { name: "threshold", label: "Threshold", min: 0, max: 1, default: 0.5, step: 0.01 }
-        ]
-    },
-    invert: {
-        name: "Invert",
-        shader: EFFECT_SHADERS.invert,
-        category: "Effects",
-        params: [
-            { name: "amount", label: "Amount", min: 0, max: 1, default: 1, step: 0.01 }
-        ]
-    },
-    sepia: {
-        name: "Sepia",
-        shader: EFFECT_SHADERS.sepia,
-        category: "Effects",
-        params: [
-            { name: "amount", label: "Amount", min: 0, max: 1, default: 1, step: 0.01 }
-        ]
-    },
-    duotone: {
-        name: "Duotone",
-        shader: EFFECT_SHADERS.duotone,
-        category: "Effects",
-        params: [
-            { name: "shadowR", label: "Shd R", min: 0, max: 1, default: 0.1, step: 0.01 },
-            { name: "shadowG", label: "Shd G", min: 0, max: 1, default: 0.0, step: 0.01 },
-            { name: "shadowB", label: "Shd B", min: 0, max: 1, default: 0.2, step: 0.01 },
-            { name: "highlightR", label: "Hi R", min: 0, max: 1, default: 1.0, step: 0.01 },
-            { name: "highlightG", label: "Hi G", min: 0, max: 1, default: 0.9, step: 0.01 },
-            { name: "highlightB", label: "Hi B", min: 0, max: 1, default: 0.6, step: 0.01 }
-        ]
-    },
-
-    // === EDGE & DETAIL ===
-    emboss: {
-        name: "Emboss",
-        shader: EFFECT_SHADERS.emboss,
-        category: "Artistic",
-        needsResolution: true,
-        params: [
-            { name: "amount", label: "Amount", min: 0, max: 4, default: 2, step: 0.1 }
-        ]
-    },
-    edgeDetect: {
-        name: "Edge Detect",
-        shader: EFFECT_SHADERS.edgeDetect,
-        category: "Artistic",
-        needsResolution: true,
-        params: [
-            { name: "amount", label: "Amount", min: 0, max: 3, default: 1, step: 0.1 }
-        ]
-    },
-    sketch: {
-        name: "Sketch",
-        shader: EFFECT_SHADERS.sketch,
-        category: "Artistic",
-        needsResolution: true,
-        params: [
-            { name: "amount", label: "Intensity", min: 1, max: 10, default: 4, step: 0.5 }
-        ]
-    },
-    oilPaint: {
-        name: "Oil Paint",
-        shader: EFFECT_SHADERS.oilPaint,
-        category: "Artistic",
-        needsResolution: true,
-        params: [
-            { name: "radius", label: "Radius", min: 1, max: 5, default: 2, step: 0.5 },
-            { name: "levels", label: "Levels", min: 4, max: 32, default: 12, step: 1 }
-        ]
-    },
-
-    // === CREATIVE EFFECTS ===
-    pixelate: {
-        name: "Pixelate",
-        shader: EFFECT_SHADERS.pixelate,
-        category: "Creative",
-        needsResolution: true,
-        params: [
-            { name: "size", label: "Size", min: 1, max: 50, default: 8, step: 1 }
-        ]
-    },
-    chromatic: {
-        name: "Chromatic Aberration",
-        shader: EFFECT_SHADERS.chromatic,
-        category: "Creative",
-        needsResolution: true,
-        params: [
-            { name: "amount", label: "Amount", min: 0, max: 10, default: 2, step: 0.5 }
-        ]
-    },
-    glitch: {
-        name: "Glitch",
-        shader: EFFECT_SHADERS.glitch,
-        category: "Creative",
-        needsResolution: true,
-        needsSeed: true,
-        params: [
-            { name: "amount", label: "Amount", min: 0, max: 1, default: 0.3, step: 0.01 }
-        ]
-    },
-    halftone: {
-        name: "Halftone",
-        shader: EFFECT_SHADERS.halftone,
-        category: "Creative",
-        needsResolution: true,
-        params: [
-            { name: "size", label: "Dot Size", min: 2, max: 20, default: 6, step: 1 }
-        ]
-    },
-
-    // === LENS EFFECTS ===
-    lensDistort: {
-        name: "Lens Distortion",
-        shader: EFFECT_SHADERS.lensDistort,
-        category: "Lens",
-        params: [
-            { name: "amount", label: "Amount", min: -1, max: 1, default: 0, step: 0.05 }
-        ]
-    },
-    tiltShift: {
-        name: "Tilt Shift",
-        shader: EFFECT_SHADERS.tiltShift,
-        category: "Lens",
-        needsResolution: true,
-        params: [
-            { name: "focus", label: "Focus", min: 0, max: 1, default: 0.5, step: 0.01 },
-            { name: "range", label: "Range", min: 0.05, max: 0.5, default: 0.2, step: 0.01 },
-            { name: "blur", label: "Blur", min: 0, max: 20, default: 8, step: 1 }
-        ]
-    },
-    radialBlur: {
-        name: "Radial Blur",
-        shader: EFFECT_SHADERS.radialBlur,
-        category: "Lens",
-        params: [
-            { name: "amount", label: "Amount", min: 0, max: 1, default: 0.3, step: 0.01 }
-        ]
-    }
-};
-
-// ============================================================================
-// WEBGL FILTER ENGINE
-// ============================================================================
-
-class FilterEngine {
-    constructor(canvas) {
-        this.canvas = canvas;
-        this.gl = canvas.getContext("webgl", { preserveDrawingBuffer: true });
-        if (!this.gl) {
-            console.error("[Purz] WebGL not available");
-            return;
-        }
-
-        this.programs = {};
-        this.sourceTexture = null;
-        this.framebuffers = [];
-        this.imageLoaded = false;
-
-        this._initGeometry();
-        this._initPrograms();
-    }
-
-    _initGeometry() {
-        const gl = this.gl;
-
-        // Full-screen quad positions
-        const positions = new Float32Array([
-            -1, -1,  1, -1,  -1, 1,
-            -1,  1,  1, -1,   1, 1
-        ]);
-
-        // Standard texture coordinates (no flip - we handle flip on image load)
-        const texCoords = new Float32Array([
-            0, 0,  1, 0,  0, 1,
-            0, 1,  1, 0,  1, 1
-        ]);
-
-        this.positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
-
-        this.texCoordBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW);
-    }
-
-    _compileShader(type, source) {
-        const gl = this.gl;
-        const shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            console.error("[Purz] Shader error:", gl.getShaderInfoLog(shader));
-            return null;
-        }
-        return shader;
-    }
-
-    _createProgram(fragmentSource) {
-        const gl = this.gl;
-        const vertexShader = this._compileShader(gl.VERTEX_SHADER, VERTEX_SHADER);
-        const fragmentShader = this._compileShader(gl.FRAGMENT_SHADER, fragmentSource);
-        if (!vertexShader || !fragmentShader) return null;
-
-        const program = gl.createProgram();
-        gl.attachShader(program, vertexShader);
-        gl.attachShader(program, fragmentShader);
-        gl.linkProgram(program);
-
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-            console.error("[Purz] Program link error:", gl.getProgramInfoLog(program));
-            return null;
-        }
-        return program;
-    }
-
-    _initPrograms() {
-        this.programs.passthrough = this._createProgram(PASSTHROUGH_SHADER);
-
-        for (const [key, effect] of Object.entries(EFFECTS)) {
-            this.programs[key] = this._createProgram(effect.shader);
-        }
-    }
-
-    /**
-     * Load and compile a custom shader on-demand.
-     * @param {string} effectKey - The effect key
-     * @param {string} shaderSource - The GLSL shader source
-     * @returns {boolean} - Whether compilation succeeded
-     */
-    loadCustomShader(effectKey, shaderSource) {
-        if (this.programs[effectKey]) {
-            // Already compiled
-            return true;
-        }
-
-        const program = this._createProgram(shaderSource);
-        if (program) {
-            this.programs[effectKey] = program;
-            console.log(`[Purz] Compiled custom shader: ${effectKey}`);
-            return true;
-        }
-
-        console.error(`[Purz] Failed to compile custom shader: ${effectKey}`);
-        return false;
-    }
-
-    /**
-     * Check if a shader program exists for the given effect.
-     */
-    hasProgram(effectKey) {
-        return !!this.programs[effectKey];
-    }
-
-    _createTexture() {
-        const gl = this.gl;
-        const texture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        return texture;
-    }
-
-    _createFramebuffer(width, height) {
-        const gl = this.gl;
-        const texture = this._createTexture();
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-
-        const fb = gl.createFramebuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
-
-        return { framebuffer: fb, texture };
-    }
-
-    _useProgram(program) {
-        const gl = this.gl;
-        gl.useProgram(program);
-
-        const posLoc = gl.getAttribLocation(program, "a_position");
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-        gl.enableVertexAttribArray(posLoc);
-        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-
-        const texLoc = gl.getAttribLocation(program, "a_texCoord");
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
-        gl.enableVertexAttribArray(texLoc);
-        gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 0, 0);
-    }
-
-    loadImage(imageElement) {
-        const gl = this.gl;
-        if (!gl) return;
-
-        // Flip image on load since WebGL has origin at bottom-left
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-
-        // Create source texture from image
-        this.sourceTexture = this._createTexture();
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageElement);
-
-        // Reset flip for framebuffer operations
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-
-        // Create two framebuffers for ping-pong rendering
-        this.framebuffers = [
-            this._createFramebuffer(this.canvas.width, this.canvas.height),
-            this._createFramebuffer(this.canvas.width, this.canvas.height)
-        ];
-
-        this.imageLoaded = true;
-    }
-
-    render(layers) {
-        if (!this.imageLoaded || !this.gl) return;
-
-        const gl = this.gl;
-        const width = this.canvas.width;
-        const height = this.canvas.height;
-
-        gl.viewport(0, 0, width, height);
-
-        // Filter to only enabled layers
-        const enabledLayers = layers.filter(l => l.enabled);
-
-        // If no layers, just show original image
-        if (enabledLayers.length === 0) {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-            this._useProgram(this.programs.passthrough);
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
-            gl.uniform1i(gl.getUniformLocation(this.programs.passthrough, "u_image"), 0);
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
-            return;
-        }
-
-        // Process layers with ping-pong rendering
-        let pingPong = 0;
-        let inputTexture = this.sourceTexture;
-
-        for (let i = 0; i < enabledLayers.length; i++) {
-            const layer = enabledLayers[i];
-            const program = this.programs[layer.effect];
-            if (!program) continue;
-
-            const isLast = (i === enabledLayers.length - 1);
-
-            // Render to framebuffer or screen (if last layer)
-            if (isLast) {
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-            } else {
-                gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[pingPong].framebuffer);
-            }
-
-            this._useProgram(program);
-
-            // Bind input texture
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, inputTexture);
-            gl.uniform1i(gl.getUniformLocation(program, "u_image"), 0);
-
-            // Set effect parameters (check both built-in and custom effects)
-            const effectDef = EFFECTS[layer.effect] || CustomShaderLoader.customEffects[layer.effect];
-            if (!effectDef) {
-                console.warn(`[Purz] Unknown effect in render: ${layer.effect}`);
-                continue;
-            }
-            for (const param of effectDef.params) {
-                const value = layer.params[param.name] ?? param.default;
-                gl.uniform1f(gl.getUniformLocation(program, `u_${param.name}`), value);
-            }
-
-            // Set opacity
-            gl.uniform1f(gl.getUniformLocation(program, "u_opacity"), layer.opacity);
-
-            // Set resolution if needed
-            if (effectDef.needsResolution) {
-                gl.uniform2f(gl.getUniformLocation(program, "u_resolution"), width, height);
-            }
-
-            // Set seed if needed (for grain, glitch, etc.)
-            // Use stored seed from layer.params to ensure preview matches output
-            if (effectDef.needsSeed) {
-                const seed = layer.params.seed !== undefined ? layer.params.seed : 0;
-                gl.uniform1f(gl.getUniformLocation(program, "u_seed"), seed);
-            }
-
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-            // Set up for next iteration
-            if (!isLast) {
-                inputTexture = this.framebuffers[pingPong].texture;
-                pingPong = 1 - pingPong; // Toggle between 0 and 1
-            }
-        }
-    }
-
-    getImageData() {
-        return this.canvas.toDataURL("image/png");
-    }
-
-    /**
-     * Render at full resolution and return image data.
-     * Used for output to ensure quality matches input resolution.
-     */
-    getFullResolutionImageData(layers, sourceImage) {
-        if (!this.gl || !sourceImage) return null;
-
-        const gl = this.gl;
-        const fullW = sourceImage.naturalWidth;
-        const fullH = sourceImage.naturalHeight;
-
-        // Store current canvas size
-        const prevW = this.canvas.width;
-        const prevH = this.canvas.height;
-        const prevStyleW = this.canvas.style.width;
-        const prevStyleH = this.canvas.style.height;
-
-        // Resize canvas to full resolution
-        this.canvas.width = fullW;
-        this.canvas.height = fullH;
-
-        // Recreate framebuffers at full resolution
-        const oldFBs = this.framebuffers;
-        this.framebuffers = [
-            this._createFramebuffer(fullW, fullH),
-            this._createFramebuffer(fullW, fullH)
-        ];
-
-        // Re-upload source image at full resolution
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceImage);
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-
-        // Render at full resolution
-        this.render(layers);
-
-        // Capture the result
-        const imageData = this.canvas.toDataURL("image/png");
-
-        // Clean up full-res framebuffers
-        for (const fb of this.framebuffers) {
-            gl.deleteFramebuffer(fb.framebuffer);
-            gl.deleteTexture(fb.texture);
-        }
-
-        // Restore previous size and framebuffers
-        this.canvas.width = prevW;
-        this.canvas.height = prevH;
-        this.canvas.style.width = prevStyleW;
-        this.canvas.style.height = prevStyleH;
-        this.framebuffers = oldFBs;
-
-        // Re-upload source at preview resolution
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceImage);
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-
-        // Re-render at preview resolution
-        this.render(layers);
-
-        return imageData;
-    }
-
-    /**
-     * Clean up WebGL resources.
-     * Call this when the widget is being destroyed to prevent memory leaks.
-     */
-    cleanup() {
-        const gl = this.gl;
-        if (!gl) return;
-
-        // Delete framebuffers and their textures
-        for (const fb of this.framebuffers) {
-            if (fb.framebuffer) gl.deleteFramebuffer(fb.framebuffer);
-            if (fb.texture) gl.deleteTexture(fb.texture);
-        }
-        this.framebuffers = [];
-
-        // Delete source texture
-        if (this.sourceTexture) {
-            gl.deleteTexture(this.sourceTexture);
-            this.sourceTexture = null;
-        }
-
-        // Delete buffers
-        if (this.positionBuffer) {
-            gl.deleteBuffer(this.positionBuffer);
-            this.positionBuffer = null;
-        }
-        if (this.texCoordBuffer) {
-            gl.deleteBuffer(this.texCoordBuffer);
-            this.texCoordBuffer = null;
-        }
-
-        // Delete all shader programs
-        for (const [key, program] of Object.entries(this.programs)) {
-            if (program) gl.deleteProgram(program);
-        }
-        this.programs = {};
-
-        // Lose WebGL context to free GPU memory
-        const loseContext = gl.getExtension('WEBGL_lose_context');
-        if (loseContext) {
-            loseContext.loseContext();
-        }
-
-        this.gl = null;
-        this.imageLoaded = false;
-    }
-}
-
-// ============================================================================
-// PRESETS
-// ============================================================================
-
-const PRESETS = {
-    // --- FILM & CINEMATIC ---
-    "cinematic_teal_orange": {
-        name: "Cinematic Teal & Orange",
-        category: "Film",
-        layers: [
-            { effect: "contrast", params: { amount: 0.15 }, opacity: 1.0 },
-            { effect: "temperature", params: { amount: 0.1 }, opacity: 0.7 },
-            { effect: "shadows", params: { amount: -0.1 }, opacity: 1.0 },
-            { effect: "highlights", params: { amount: 0.05 }, opacity: 1.0 },
-            { effect: "vibrance", params: { amount: 0.2 }, opacity: 1.0 },
-            { effect: "vignette", params: { amount: 0.3, softness: 0.4 }, opacity: 0.6 }
-        ]
-    },
-    "film_noir": {
-        name: "Film Noir",
-        category: "Film",
-        layers: [
-            { effect: "desaturate", params: { amount: 1.0 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: 0.4 }, opacity: 1.0 },
-            { effect: "blacks", params: { amount: -0.15 }, opacity: 1.0 },
-            { effect: "vignette", params: { amount: 0.5, softness: 0.3 }, opacity: 0.8 },
-            { effect: "grain", params: { amount: 0.08, size: 100 }, opacity: 0.5 }
-        ]
-    },
-    "vintage_film": {
-        name: "Vintage Film",
-        category: "Film",
-        layers: [
-            { effect: "sepia", params: { amount: 0.3 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: -0.1 }, opacity: 1.0 },
-            { effect: "highlights", params: { amount: 0.1 }, opacity: 1.0 },
-            { effect: "grain", params: { amount: 0.12, size: 80 }, opacity: 0.7 },
-            { effect: "vignette", params: { amount: 0.4, softness: 0.5 }, opacity: 0.5 }
-        ]
-    },
-    "blockbuster": {
-        name: "Blockbuster",
-        category: "Film",
-        layers: [
-            { effect: "contrast", params: { amount: 0.25 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: 0.15 }, opacity: 1.0 },
-            { effect: "clarity", params: { amount: 0.3 }, opacity: 0.8 },
-            { effect: "shadows", params: { amount: -0.1 }, opacity: 1.0 },
-            { effect: "vignette", params: { amount: 0.25, softness: 0.5 }, opacity: 0.5 }
-        ]
-    },
-    "faded_film": {
-        name: "Faded Film",
-        category: "Film",
-        layers: [
-            { effect: "blacks", params: { amount: 0.1 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: -0.15 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: -0.2 }, opacity: 1.0 },
-            { effect: "temperature", params: { amount: 0.05 }, opacity: 0.6 },
-            { effect: "grain", params: { amount: 0.06, size: 120 }, opacity: 0.6 }
-        ]
-    },
-
-    // --- PORTRAIT ---
-    "portrait_soft": {
-        name: "Soft Portrait",
-        category: "Portrait",
-        layers: [
-            { effect: "clarity", params: { amount: -0.2 }, opacity: 0.6 },
-            { effect: "highlights", params: { amount: 0.1 }, opacity: 1.0 },
-            { effect: "vibrance", params: { amount: 0.15 }, opacity: 1.0 },
-            { effect: "vignette", params: { amount: 0.2, softness: 0.6 }, opacity: 0.4 }
-        ]
-    },
-    "portrait_dramatic": {
-        name: "Dramatic Portrait",
-        category: "Portrait",
-        layers: [
-            { effect: "contrast", params: { amount: 0.2 }, opacity: 1.0 },
-            { effect: "clarity", params: { amount: 0.25 }, opacity: 0.7 },
-            { effect: "shadows", params: { amount: -0.15 }, opacity: 1.0 },
-            { effect: "highlights", params: { amount: 0.1 }, opacity: 1.0 },
-            { effect: "vignette", params: { amount: 0.35, softness: 0.4 }, opacity: 0.6 }
-        ]
-    },
-    "portrait_warm": {
-        name: "Warm Portrait",
-        category: "Portrait",
-        layers: [
-            { effect: "temperature", params: { amount: 0.15 }, opacity: 1.0 },
-            { effect: "exposure", params: { amount: 0.1 }, opacity: 1.0 },
-            { effect: "vibrance", params: { amount: 0.1 }, opacity: 1.0 },
-            { effect: "vignette", params: { amount: 0.15, softness: 0.5 }, opacity: 0.4 }
-        ]
-    },
-
-    // --- LANDSCAPE ---
-    "landscape_vivid": {
-        name: "Vivid Landscape",
-        category: "Landscape",
-        layers: [
-            { effect: "vibrance", params: { amount: 0.35 }, opacity: 1.0 },
-            { effect: "clarity", params: { amount: 0.3 }, opacity: 0.8 },
-            { effect: "dehaze", params: { amount: 0.2 }, opacity: 0.7 },
-            { effect: "highlights", params: { amount: -0.1 }, opacity: 1.0 },
-            { effect: "shadows", params: { amount: 0.15 }, opacity: 1.0 }
-        ]
-    },
-    "landscape_moody": {
-        name: "Moody Landscape",
-        category: "Landscape",
-        layers: [
-            { effect: "contrast", params: { amount: 0.2 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: -0.25 }, opacity: 1.0 },
-            { effect: "temperature", params: { amount: -0.1 }, opacity: 0.8 },
-            { effect: "vignette", params: { amount: 0.3, softness: 0.4 }, opacity: 0.6 },
-            { effect: "clarity", params: { amount: 0.2 }, opacity: 0.7 }
-        ]
-    },
-    "golden_hour": {
-        name: "Golden Hour",
-        category: "Landscape",
-        layers: [
-            { effect: "temperature", params: { amount: 0.25 }, opacity: 1.0 },
-            { effect: "exposure", params: { amount: 0.15 }, opacity: 0.8 },
-            { effect: "highlights", params: { amount: 0.15 }, opacity: 1.0 },
-            { effect: "vibrance", params: { amount: 0.2 }, opacity: 1.0 },
-            { effect: "vignette", params: { amount: 0.2, softness: 0.6 }, opacity: 0.4 }
-        ]
-    },
-    "blue_hour": {
-        name: "Blue Hour",
-        category: "Landscape",
-        layers: [
-            { effect: "temperature", params: { amount: -0.2 }, opacity: 1.0 },
-            { effect: "tint", params: { amount: 0.05 }, opacity: 0.6 },
-            { effect: "contrast", params: { amount: 0.1 }, opacity: 1.0 },
-            { effect: "shadows", params: { amount: -0.1 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: 0.1 }, opacity: 0.8 }
-        ]
-    },
-
-    // --- BLACK & WHITE ---
-    "bw_high_contrast": {
-        name: "B&W High Contrast",
-        category: "Black & White",
-        layers: [
-            { effect: "desaturate", params: { amount: 1.0 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: 0.4 }, opacity: 1.0 },
-            { effect: "clarity", params: { amount: 0.2 }, opacity: 0.8 }
-        ]
-    },
-    "bw_soft": {
-        name: "B&W Soft",
-        category: "Black & White",
-        layers: [
-            { effect: "desaturate", params: { amount: 1.0 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: -0.1 }, opacity: 1.0 },
-            { effect: "blacks", params: { amount: 0.05 }, opacity: 1.0 },
-            { effect: "grain", params: { amount: 0.04, size: 150 }, opacity: 0.5 }
-        ]
-    },
-    "bw_dramatic": {
-        name: "B&W Dramatic",
-        category: "Black & White",
-        layers: [
-            { effect: "desaturate", params: { amount: 1.0 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: 0.35 }, opacity: 1.0 },
-            { effect: "clarity", params: { amount: 0.3 }, opacity: 0.8 },
-            { effect: "vignette", params: { amount: 0.4, softness: 0.35 }, opacity: 0.7 }
-        ]
-    },
-
-    // --- MOOD & STYLE ---
-    "dreamy": {
-        name: "Dreamy",
-        category: "Mood",
-        layers: [
-            { effect: "blur", params: { amount: 1.5 }, opacity: 0.3 },
-            { effect: "highlights", params: { amount: 0.2 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: -0.15 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: -0.1 }, opacity: 1.0 }
-        ]
-    },
-    "dark_moody": {
-        name: "Dark & Moody",
-        category: "Mood",
-        layers: [
-            { effect: "exposure", params: { amount: -0.2 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: 0.2 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: -0.3 }, opacity: 1.0 },
-            { effect: "vignette", params: { amount: 0.45, softness: 0.35 }, opacity: 0.7 }
-        ]
-    },
-    "light_airy": {
-        name: "Light & Airy",
-        category: "Mood",
-        layers: [
-            { effect: "exposure", params: { amount: 0.25 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: -0.15 }, opacity: 1.0 },
-            { effect: "highlights", params: { amount: 0.15 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: -0.1 }, opacity: 1.0 }
-        ]
-    },
-    "cyberpunk": {
-        name: "Cyberpunk",
-        category: "Mood",
-        layers: [
-            { effect: "contrast", params: { amount: 0.3 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: 0.3 }, opacity: 1.0 },
-            { effect: "tint", params: { amount: 0.15 }, opacity: 0.6 },
-            { effect: "chromatic", params: { amount: 3 }, opacity: 0.4 },
-            { effect: "vignette", params: { amount: 0.35, softness: 0.3 }, opacity: 0.6 }
-        ]
-    },
-    "retro_80s": {
-        name: "Retro 80s",
-        category: "Mood",
-        layers: [
-            { effect: "contrast", params: { amount: 0.2 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: 0.25 }, opacity: 1.0 },
-            { effect: "tint", params: { amount: 0.1 }, opacity: 0.5 },
-            { effect: "grain", params: { amount: 0.08, size: 100 }, opacity: 0.5 },
-            { effect: "vignette", params: { amount: 0.25, softness: 0.5 }, opacity: 0.5 }
-        ]
-    },
-
-    // --- CREATIVE ---
-    "duotone_blue": {
-        name: "Duotone Blue",
-        category: "Creative",
-        layers: [
-            { effect: "duotone", params: { shadowR: 0.0, shadowG: 0.1, shadowB: 0.3, highlightR: 0.9, highlightG: 0.95, highlightB: 1.0 }, opacity: 1.0 }
-        ]
-    },
-    "duotone_warm": {
-        name: "Duotone Warm",
-        category: "Creative",
-        layers: [
-            { effect: "duotone", params: { shadowR: 0.2, shadowG: 0.05, shadowB: 0.0, highlightR: 1.0, highlightG: 0.95, highlightB: 0.8 }, opacity: 1.0 }
-        ]
-    },
-    "cross_process": {
-        name: "Cross Process",
-        category: "Creative",
-        layers: [
-            { effect: "curves", params: { shadows: 0.1, midtones: -0.05, highlights: 0.1 }, opacity: 1.0 },
-            { effect: "channelMixer", params: { redShift: 0.05, greenShift: -0.05, blueShift: 0.1 }, opacity: 0.7 },
-            { effect: "contrast", params: { amount: 0.15 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: 0.2 }, opacity: 1.0 }
-        ]
-    },
-    "lomo": {
-        name: "Lomo",
-        category: "Creative",
-        layers: [
-            { effect: "contrast", params: { amount: 0.3 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: 0.25 }, opacity: 1.0 },
-            { effect: "vignette", params: { amount: 0.5, softness: 0.3 }, opacity: 0.8 },
-            { effect: "grain", params: { amount: 0.06, size: 100 }, opacity: 0.5 }
-        ]
-    },
-    "sketch_effect": {
-        name: "Sketch",
-        category: "Creative",
-        layers: [
-            { effect: "sketch", params: { amount: 4.0 }, opacity: 1.0 }
-        ]
-    },
-
-    // --- CINEMATIC (New) ---
-    "cinematic_blockbuster": {
-        name: "Blockbuster Cinema",
-        category: "Cinematic",
-        layers: [
-            { effect: "contrast", params: { amount: 0.2 }, opacity: 1.0 },
-            { effect: "splitTone", params: { shadowHue: 0.55, shadowSat: 0.25, highlightHue: 0.08, highlightSat: 0.2, balance: 0.1 }, opacity: 0.8 },
-            { effect: "anamorphic", params: { squeeze: 1.0, flareStrength: 0.2, aberration: 0.002 }, opacity: 0.6 },
-            { effect: "lensVignette", params: { amount: 0.6, falloff: 2.5, roundness: 1.2 }, opacity: 0.7 }
-        ]
-    },
-    "cinematic_noir_modern": {
-        name: "Modern Noir",
-        category: "Cinematic",
-        layers: [
-            { effect: "desaturate", params: { amount: 0.85 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: 0.35 }, opacity: 1.0 },
-            { effect: "toneCurve", params: { contrast: 0.2, pivot: 0.4 }, opacity: 0.8 },
-            { effect: "grain", params: { amount: 0.06, size: 80 }, opacity: 0.5 },
-            { effect: "lensVignette", params: { amount: 0.8, falloff: 2, roundness: 1 }, opacity: 0.8 }
-        ]
-    },
-    "cinematic_scifi": {
-        name: "Sci-Fi Blue",
-        category: "Cinematic",
-        layers: [
-            { effect: "temperature", params: { amount: -0.2 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: 0.25 }, opacity: 1.0 },
-            { effect: "colorLookup", params: { intensity: 0.5, warmth: -0.3, tealOrange: 0.4 }, opacity: 0.7 },
-            { effect: "chromatic", params: { amount: 0.15 }, opacity: 0.4 },
-            { effect: "crtScanlines", params: { intensity: 0.15, density: 300, curvature: 0.1 }, opacity: 0.3 }
-        ]
-    },
-    "cinematic_horror": {
-        name: "Horror Atmosphere",
-        category: "Cinematic",
-        layers: [
-            { effect: "exposure", params: { amount: -0.15 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: 0.3 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: -0.4 }, opacity: 1.0 },
-            { effect: "gradientMap", params: { shadowR: 0.1, shadowG: 0.05, shadowB: 0.1, midR: 0.3, midG: 0.25, midB: 0.3, highlightR: 0.9, highlightG: 0.85, highlightB: 0.8 }, opacity: 0.4 },
-            { effect: "lensVignette", params: { amount: 1.2, falloff: 1.8, roundness: 1 }, opacity: 0.9 }
-        ]
-    },
-
-    // --- VINTAGE (New) ---
-    "vintage_kodachrome": {
-        name: "Kodachrome Style",
-        category: "Vintage",
-        layers: [
-            { effect: "contrast", params: { amount: 0.15 }, opacity: 1.0 },
-            { effect: "vibrancePro", params: { vibrance: 0.3, protectSkin: 0.6, satBoost: 0.15 }, opacity: 0.9 },
-            { effect: "rgbCurves", params: { redLift: 0.02, redGamma: 0, redGain: 0.05, greenLift: 0, greenGamma: 0, greenGain: 0, blueLift: -0.03, blueGamma: 0, blueGain: -0.05 }, opacity: 0.7 },
-            { effect: "grain", params: { amount: 0.05, size: 100 }, opacity: 0.5 }
-        ]
-    },
-    "vintage_polaroid": {
-        name: "Polaroid Memories",
-        category: "Vintage",
-        layers: [
-            { effect: "fade", params: { amount: 0.2 }, opacity: 1.0 },
-            { effect: "temperature", params: { amount: 0.1 }, opacity: 0.8 },
-            { effect: "contrast", params: { amount: -0.1 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: -0.15 }, opacity: 1.0 },
-            { effect: "vignette", params: { amount: 0.3, softness: 0.5 }, opacity: 0.6 },
-            { effect: "grain", params: { amount: 0.08, size: 120 }, opacity: 0.6 }
-        ]
-    },
-    "vintage_70s": {
-        name: "70s Warm",
-        category: "Vintage",
-        layers: [
-            { effect: "crossProcess", params: { amount: 0.4 }, opacity: 0.6 },
-            { effect: "temperature", params: { amount: 0.15 }, opacity: 1.0 },
-            { effect: "fade", params: { amount: 0.15 }, opacity: 1.0 },
-            { effect: "contrast", params: { amount: -0.05 }, opacity: 1.0 },
-            { effect: "lightLeak", params: { intensity: 0.3, position: 0.2, color: 0.7 }, opacity: 0.5 },
-            { effect: "grain", params: { amount: 0.1, size: 80 }, opacity: 0.6 }
-        ]
-    },
-    "vintage_daguerreotype": {
-        name: "Daguerreotype",
-        category: "Vintage",
-        layers: [
-            { effect: "desaturate", params: { amount: 1.0 }, opacity: 1.0 },
-            { effect: "sepia", params: { amount: 0.4 }, opacity: 0.7 },
-            { effect: "contrast", params: { amount: 0.1 }, opacity: 1.0 },
-            { effect: "lensVignette", params: { amount: 0.9, falloff: 1.5, roundness: 0.8 }, opacity: 0.8 },
-            { effect: "scratch", params: { density: 0.2, intensity: 0.3 }, opacity: 0.5 },
-            { effect: "dust", params: { density: 0.2, size: 1.2 }, opacity: 0.4 }
-        ]
-    },
-
-    // --- STYLIZED (New) ---
-    "stylized_neon_nights": {
-        name: "Neon Nights",
-        category: "Stylized",
-        layers: [
-            { effect: "contrast", params: { amount: 0.4 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: 0.5 }, opacity: 1.0 },
-            { effect: "splitTone", params: { shadowHue: 0.75, shadowSat: 0.4, highlightHue: 0.95, highlightSat: 0.3, balance: -0.2 }, opacity: 0.7 },
-            { effect: "chromatic", params: { amount: 0.3 }, opacity: 0.5 },
-            { effect: "vignette", params: { amount: 0.4, softness: 0.3 }, opacity: 0.7 }
-        ]
-    },
-    "stylized_anime": {
-        name: "Anime Style",
-        category: "Stylized",
-        layers: [
-            { effect: "contrast", params: { amount: 0.2 }, opacity: 1.0 },
-            { effect: "saturation", params: { amount: 0.3 }, opacity: 1.0 },
-            { effect: "posterize", params: { levels: 12 }, opacity: 0.4 },
-            { effect: "edgeDetect", params: { amount: 0.8 }, opacity: 0.15 }
-        ]
-    },
-    "stylized_watercolor_dream": {
-        name: "Watercolor Dream",
-        category: "Stylized",
-        layers: [
-            { effect: "watercolor", params: { wetness: 0.6, granulation: 0.4 }, opacity: 0.8 },
-            { effect: "saturation", params: { amount: -0.1 }, opacity: 1.0 },
-            { effect: "highlights", params: { amount: 0.15 }, opacity: 1.0 }
-        ]
-    },
-    "stylized_comic": {
-        name: "Comic Panel",
-        category: "Stylized",
-        layers: [
-            { effect: "comicBook", params: { edgeThickness: 2.5, colorLevels: 6 }, opacity: 0.9 },
-            { effect: "contrast", params: { amount: 0.15 }, opacity: 1.0 }
-        ]
-    },
-
-    // --- PHOTO ENHANCEMENT (New) ---
-    "enhance_portrait_pro": {
-        name: "Portrait Pro",
-        category: "Enhancement",
-        layers: [
-            { effect: "surfaceBlur", params: { radius: 3, threshold: 0.12 }, opacity: 0.4 },
-            { effect: "smartSharpen", params: { amount: 0.8, radius: 1, threshold: 0.05 }, opacity: 0.6 },
-            { effect: "vibrancePro", params: { vibrance: 0.15, protectSkin: 0.8, satBoost: 0 }, opacity: 1.0 },
-            { effect: "highlights", params: { amount: 0.1 }, opacity: 1.0 },
-            { effect: "shadows", params: { amount: 0.05 }, opacity: 1.0 }
-        ]
-    },
-    "enhance_landscape_hdr": {
-        name: "Landscape HDR",
-        category: "Enhancement",
-        layers: [
-            { effect: "hdrTone", params: { strength: 0.6, detail: 0.5 }, opacity: 0.8 },
-            { effect: "localContrast", params: { amount: 0.3, radius: 8 }, opacity: 0.7 },
-            { effect: "vibrancePro", params: { vibrance: 0.25, protectSkin: 0.3, satBoost: 0.1 }, opacity: 1.0 },
-            { effect: "dehaze", params: { amount: 0.2 }, opacity: 0.7 }
-        ]
-    },
-    "enhance_detail_pop": {
-        name: "Detail Pop",
-        category: "Enhancement",
-        layers: [
-            { effect: "microContrast", params: { amount: 0.8, radius: 4 }, opacity: 0.7 },
-            { effect: "textureEnhance", params: { strength: 0.6, scale: 8 }, opacity: 0.5 },
-            { effect: "clarity", params: { amount: 0.4 }, opacity: 0.8 },
-            { effect: "contrast", params: { amount: 0.1 }, opacity: 1.0 }
-        ]
-    },
-    "enhance_auto_fix": {
-        name: "Auto Enhance",
-        category: "Enhancement",
-        layers: [
-            { effect: "autoContrast", params: { amount: 0.6 }, opacity: 0.8 },
-            { effect: "shadowRecovery", params: { amount: 0.4, range: 0.3 }, opacity: 0.7 },
-            { effect: "highlightRecovery", params: { amount: 0.3, range: 0.8 }, opacity: 0.7 },
-            { effect: "vibrancePro", params: { vibrance: 0.1, protectSkin: 0.5, satBoost: 0 }, opacity: 1.0 }
-        ]
-    }
-};
-
-// ============================================================================
-// UI STYLES
-// ============================================================================
-
-function createStyles() {
-    if (document.getElementById('purz-filter-styles')) return;
-
-    const style = document.createElement('style');
-    style.id = 'purz-filter-styles';
-    style.textContent = `
-        .purz-filter-container {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            height: 100%;
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            font-size: 12px;
-            color: #ddd;
-            overflow: hidden;
-            position: relative;
-        }
-        .purz-canvas-wrapper {
-            margin-bottom: 8px;
-            width: 100%;
-            flex-shrink: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .purz-canvas {
-            border-radius: 6px;
-            background: #222;
-            display: block;
-            width: 100%;
-            height: auto;
-            max-height: 400px;
-            object-fit: contain;
-        }
-        .purz-layers-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px 0;
-            border-bottom: 1px solid #444;
-            margin-bottom: 6px;
-            flex-shrink: 0;
-        }
-        .purz-layers-title {
-            font-weight: 600;
-            font-size: 11px;
-            color: #fff;
-        }
-        .purz-add-btn {
-            background: #4a9eff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 3px 8px;
-            cursor: pointer;
-            font-size: 10px;
-            font-weight: 500;
-        }
-        .purz-add-btn:hover {
-            background: #3a8eef;
-        }
-        .purz-layers-list {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            flex: 1;
-            overflow-y: auto;
-            min-height: 40px;
-            max-height: 300px;
-        }
-        .purz-layer {
-            background: #2a2a2a;
-            border-radius: 4px;
-            padding: 6px;
-            border: 1px solid #3a3a3a;
-            flex-shrink: 0;
-        }
-        .purz-layer.disabled {
-            opacity: 0.5;
-        }
-        .purz-layer-header {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            margin-bottom: 4px;
-        }
-        .purz-layer-drag-handle {
-            cursor: grab;
-            color: #666;
-            padding: 0 2px;
-            font-size: 10px;
-            user-select: none;
-            flex-shrink: 0;
-        }
-        .purz-layer-drag-handle:hover {
-            color: #999;
-        }
-        .purz-layer-drag-handle:active {
-            cursor: grabbing;
-        }
-        .purz-layer.dragging {
-            opacity: 0.5;
-            border: 1px dashed #4a9eff;
-        }
-        .purz-layer.drag-over {
-            border-top: 2px solid #4a9eff;
-        }
-        .purz-layer.drag-over-bottom {
-            border-bottom: 2px solid #4a9eff;
-        }
-        .purz-layer-toggle {
-            width: 14px;
-            height: 14px;
-            flex-shrink: 0;
-            cursor: pointer;
-            accent-color: #4a9eff;
-        }
-        .purz-layer-select {
-            flex: 1;
-            min-width: 0;
-            background: #1a1a1a;
-            color: #fff;
-            border: 1px solid #444;
-            border-radius: 3px;
-            padding: 2px 4px;
-            font-size: 10px;
-        }
-        .purz-layer-delete {
-            background: transparent;
-            border: none;
-            color: #888;
-            cursor: pointer;
-            padding: 0 4px;
-            font-size: 12px;
-            line-height: 1;
-            flex-shrink: 0;
-        }
-        .purz-layer-delete:hover {
-            color: #f55;
-        }
-        .purz-layer-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-        }
-        .purz-control-row {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .purz-control-label {
-            width: 50px;
-            font-size: 9px;
-            color: #999;
-            flex-shrink: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .purz-control-slider {
-            flex: 1;
-            min-width: 40px;
-            height: 3px;
-            cursor: pointer;
-            accent-color: #4a9eff;
-        }
-        .purz-control-value {
-            width: 36px;
-            font-size: 9px;
-            color: #888;
-            text-align: right;
-            flex-shrink: 0;
-        }
-        .purz-control-checkbox {
-            width: 14px;
-            height: 14px;
-            cursor: pointer;
-            accent-color: #4a9eff;
-            margin-left: auto;
-        }
-        .purz-actions {
-            display: flex;
-            gap: 6px;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid #444;
-            flex-shrink: 0;
-        }
-        .purz-save-btn {
-            flex: 1;
-            background: #4a9eff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 10px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 10px;
-        }
-        .purz-save-btn:hover {
-            background: #3a8eef;
-        }
-        .purz-reset-btn {
-            background: #444;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 8px;
-            cursor: pointer;
-            font-size: 10px;
-            flex-shrink: 0;
-        }
-        .purz-reset-btn:hover {
-            background: #555;
-        }
-        .purz-status {
-            text-align: center;
-            font-size: 9px;
-            color: #888;
-            margin-top: 6px;
-            flex-shrink: 0;
-        }
-        .purz-status.success { color: #4a9; }
-        .purz-status.error { color: #f55; }
-        .purz-empty-state {
-            text-align: center;
-            padding: 12px 4px;
-            color: #666;
-            font-size: 10px;
-        }
-        /* Preset Controls */
-        .purz-preset-row {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #444;
-            flex-shrink: 0;
-        }
-        .purz-preset-select {
-            flex: 1;
-            background: #333;
-            color: #ddd;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 4px 6px;
-            font-size: 11px;
-            cursor: pointer;
-            appearance: none;
-            -webkit-appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%23999' d='M0 3l5 5 5-5z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 6px center;
-            padding-right: 20px;
-        }
-        .purz-preset-select:hover {
-            border-color: #666;
-        }
-        .purz-preset-select:focus {
-            outline: none;
-            border-color: #4a9eff;
-        }
-        .purz-preset-select optgroup {
-            background: #2a2a2a;
-            color: #888;
-            font-weight: 600;
-            font-style: normal;
-        }
-        .purz-preset-select option {
-            background: #333;
-            color: #ddd;
-            padding: 4px;
-        }
-        .purz-preset-save-btn {
-            background: #555;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 4px 8px;
-            cursor: pointer;
-            font-size: 10px;
-            white-space: nowrap;
-        }
-        .purz-preset-save-btn:hover {
-            background: #666;
-        }
-        .purz-preset-save-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .purz-preset-delete-btn {
-            background: #a33;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 4px 6px;
-            cursor: pointer;
-            font-size: 10px;
-        }
-        .purz-preset-delete-btn:hover {
-            background: #c44;
-        }
-        /* Playback Controls */
-        .purz-playback-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 0;
-            border-bottom: 1px solid #444;
-            margin-bottom: 6px;
-            flex-shrink: 0;
-        }
-        .purz-playback-row.hidden {
-            display: none;
-        }
-        .purz-play-btn {
-            background: #4a9eff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            width: 28px;
-            height: 24px;
-            cursor: pointer;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .purz-play-btn:hover {
-            background: #3a8eef;
-        }
-        .purz-play-btn.playing {
-            background: #e94;
-        }
-        .purz-frame-slider {
-            flex: 1;
-            height: 4px;
-            -webkit-appearance: none;
-            appearance: none;
-            background: #444;
-            border-radius: 2px;
-            outline: none;
-        }
-        .purz-frame-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #4a9eff;
-            cursor: pointer;
-        }
-        .purz-frame-slider::-moz-range-thumb {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #4a9eff;
-            cursor: pointer;
-            border: none;
-        }
-        .purz-frame-counter {
-            font-size: 10px;
-            color: #aaa;
-            min-width: 50px;
-            text-align: right;
-        }
-        .purz-fps-select {
-            background: #333;
-            color: #ddd;
-            border: 1px solid #555;
-            border-radius: 3px;
-            padding: 2px 4px;
-            font-size: 10px;
-            cursor: pointer;
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-function fitHeight(node, widget) {
-    if (!node) return;
-
-    // Calculate height directly from widget state
-    let height = 500; // Base height
-    if (widget) {
-        const size = widget.computeSize(node.size[0]);
-        height = size[1] + 40; // Buffer for node title bar and chrome
-
-        // Set explicit height on container to match computed size
-        if (widget.container) {
-            widget.container.style.height = size[1] + "px";
-        }
-    }
-
-    node.setSize([node.size[0], height]);
-    node?.graph?.setDirtyCanvas(true);
-}
+import { CustomShaderLoader, EFFECTS, FilterEngine } from "./purz_filter_engine.js";
+import { PRESETS } from "./purz_preset_manager.js";
+import { createStyles } from "./purz_styles.js";
+import { EffectPicker, UndoManager, fitHeight } from "./purz_layer_manager.js";
 
 // ============================================================================
 // MAIN WIDGET CLASS
@@ -2636,10 +51,18 @@ class InteractiveFilterWidget {
         this.animationFrameId = null;
         this.animationTime = 0;
 
+        // Undo/Redo system
+        this.undoManager = new UndoManager(50);
+
+        // A/B Split preview state
+        this.splitMode = "filtered"; // "filtered" | "split" | "original"
+        this.splitPosition = 0.5; // 0..1, position of divider
+
         createStyles();
         this._buildUI();
         this._initPresets();
         this._initCustomShaders();
+        this._initKeyboardShortcuts();
     }
 
     async _initPresets() {
@@ -2656,6 +79,63 @@ class InteractiveFilterWidget {
         if (this.layers.length > 0) {
             this._renderLayers();
         }
+    }
+
+    _initKeyboardShortcuts() {
+        // Listen for Ctrl+Z / Ctrl+Shift+Z while the node is focused
+        this.container.addEventListener("keydown", (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                this._undo();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === "z" && e.shiftKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                this._redo();
+            }
+        });
+        // Make container focusable to receive key events
+        this.container.tabIndex = -1;
+    }
+
+    _pushUndoState() {
+        this.undoManager.pushState(this.layers);
+        this._updateUndoRedoButtons();
+    }
+
+    _pushUndoStateDebounced() {
+        this.undoManager.pushStateDebounced(this.layers);
+        // Don't update buttons here; too frequent
+    }
+
+    _undo() {
+        const state = this.undoManager.undo(this.layers);
+        if (state) {
+            this.layers = state;
+            // Restore layerIdCounter to max id in restored layers
+            this.layerIdCounter = this.layers.reduce((max, l) => Math.max(max, l.id), this.layerIdCounter);
+            this._renderLayers();
+            this._updatePreview();
+            fitHeight(this.node, this);
+        }
+        this._updateUndoRedoButtons();
+    }
+
+    _redo() {
+        const state = this.undoManager.redo(this.layers);
+        if (state) {
+            this.layers = state;
+            this.layerIdCounter = this.layers.reduce((max, l) => Math.max(max, l.id), this.layerIdCounter);
+            this._renderLayers();
+            this._updatePreview();
+            fitHeight(this.node, this);
+        }
+        this._updateUndoRedoButtons();
+    }
+
+    _updateUndoRedoButtons() {
+        if (this.undoBtn) this.undoBtn.disabled = !this.undoManager.canUndo();
+        if (this.redoBtn) this.redoBtn.disabled = !this.undoManager.canRedo();
     }
 
     /**
@@ -2703,6 +183,57 @@ class InteractiveFilterWidget {
         return false;
     }
 
+    // =========================================================================
+    // A/B SPLIT PREVIEW
+    // =========================================================================
+
+    _cycleSplitMode() {
+        const modes = ["filtered", "split", "original"];
+        const idx = modes.indexOf(this.splitMode);
+        this.splitMode = modes[(idx + 1) % modes.length];
+        this._updateSplitUI();
+        this._updatePreview();
+    }
+
+    _updateSplitUI() {
+        const isSplit = this.splitMode === "split";
+        this.splitHandle.style.display = isSplit ? "block" : "none";
+        this.splitLabelLeft.style.display = isSplit ? "block" : "none";
+        this.splitLabelRight.style.display = isSplit ? "block" : "none";
+        if (isSplit) {
+            this.splitHandle.style.left = `${this.splitPosition * 100}%`;
+        }
+    }
+
+    _initSplitDrag(canvasWrapper) {
+        let dragging = false;
+
+        this.splitHandle.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragging = true;
+            this.splitHandle.setPointerCapture(e.pointerId);
+        });
+
+        this.splitHandle.addEventListener("pointermove", (e) => {
+            if (!dragging) return;
+            const rect = canvasWrapper.getBoundingClientRect();
+            this.splitPosition = Math.max(0.05, Math.min(0.95,
+                (e.clientX - rect.left) / rect.width
+            ));
+            this.splitHandle.style.left = `${this.splitPosition * 100}%`;
+            this._updatePreview();
+        });
+
+        this.splitHandle.addEventListener("pointerup", () => {
+            dragging = false;
+        });
+
+        this.splitHandle.addEventListener("lostpointercapture", () => {
+            dragging = false;
+        });
+    }
+
     _buildUI() {
         this.container = document.createElement("div");
         this.container.className = "purz-filter-container";
@@ -2733,7 +264,32 @@ class InteractiveFilterWidget {
         this.canvas.width = 200;
         this.canvas.height = 200;
         canvasWrapper.appendChild(this.canvas);
+
+        // A/B Split handle (hidden until split mode)
+        this.splitHandle = document.createElement("div");
+        this.splitHandle.className = "purz-split-handle";
+        this.splitHandle.style.display = "none";
+        this.splitHandle.style.left = "50%";
+        canvasWrapper.appendChild(this.splitHandle);
+
+        // Split labels
+        this.splitLabelLeft = document.createElement("div");
+        this.splitLabelLeft.className = "purz-split-label purz-split-label-left";
+        this.splitLabelLeft.textContent = "Original";
+        this.splitLabelLeft.style.display = "none";
+        canvasWrapper.appendChild(this.splitLabelLeft);
+
+        this.splitLabelRight = document.createElement("div");
+        this.splitLabelRight.className = "purz-split-label purz-split-label-right";
+        this.splitLabelRight.textContent = "Filtered";
+        this.splitLabelRight.style.display = "none";
+        canvasWrapper.appendChild(this.splitLabelRight);
+
+        // Split handle drag
+        this._initSplitDrag(canvasWrapper);
+
         this.container.appendChild(canvasWrapper);
+        this.canvasWrapper = canvasWrapper;
 
         // Playback controls (hidden until batch loaded)
         this.playbackRow = document.createElement("div");
@@ -2741,7 +297,7 @@ class InteractiveFilterWidget {
 
         this.playBtn = document.createElement("button");
         this.playBtn.className = "purz-play-btn";
-        this.playBtn.innerHTML = "▶";
+        this.playBtn.innerHTML = "\u25B6";
         this.playBtn.title = "Play/Pause";
         this.playBtn.addEventListener("click", () => this._togglePlayback());
         this.playbackRow.appendChild(this.playBtn);
@@ -2792,6 +348,36 @@ class InteractiveFilterWidget {
         layersTitle.className = "purz-layers-title";
         layersTitle.textContent = "Effects";
         layersHeader.appendChild(layersTitle);
+
+        // A/B view toggle
+        const viewToggle = document.createElement("button");
+        viewToggle.className = "purz-view-toggle";
+        viewToggle.textContent = "A|B";
+        viewToggle.title = "Toggle: Filtered / Split / Original";
+        viewToggle.addEventListener("click", () => this._cycleSplitMode());
+        layersHeader.appendChild(viewToggle);
+
+        // Undo/Redo buttons
+        const undoRedoGroup = document.createElement("div");
+        undoRedoGroup.className = "purz-undo-redo-group";
+
+        this.undoBtn = document.createElement("button");
+        this.undoBtn.className = "purz-undo-btn";
+        this.undoBtn.textContent = "\u21A9";
+        this.undoBtn.title = "Undo (Ctrl+Z)";
+        this.undoBtn.disabled = true;
+        this.undoBtn.addEventListener("click", () => this._undo());
+        undoRedoGroup.appendChild(this.undoBtn);
+
+        this.redoBtn = document.createElement("button");
+        this.redoBtn.className = "purz-redo-btn";
+        this.redoBtn.textContent = "\u21AA";
+        this.redoBtn.title = "Redo (Ctrl+Shift+Z)";
+        this.redoBtn.disabled = true;
+        this.redoBtn.addEventListener("click", () => this._redo());
+        undoRedoGroup.appendChild(this.redoBtn);
+
+        layersHeader.appendChild(undoRedoGroup);
 
         const addBtn = document.createElement("button");
         addBtn.className = "purz-add-btn";
@@ -2861,6 +447,8 @@ class InteractiveFilterWidget {
             return;
         }
 
+        this._pushUndoState();
+
         // Ensure custom shader is compiled before adding layer
         await this._ensureCustomShaderCompiled(effectType);
 
@@ -2889,6 +477,7 @@ class InteractiveFilterWidget {
     }
 
     _removeLayer(id) {
+        this._pushUndoState();
         this.layers = this.layers.filter(l => l.id !== id);
         this._renderLayers();
         this._updatePreview();
@@ -2896,6 +485,7 @@ class InteractiveFilterWidget {
     }
 
     _reorderLayer(draggedId, targetId, insertBefore) {
+        this._pushUndoState();
         const draggedIdx = this.layers.findIndex(l => l.id === draggedId);
         const targetIdx = this.layers.findIndex(l => l.id === targetId);
 
@@ -2931,6 +521,8 @@ class InteractiveFilterWidget {
         }
 
         if (!preset) return;
+
+        this._pushUndoState();
 
         // Clear existing layers
         this.layers = [];
@@ -3225,7 +817,7 @@ class InteractiveFilterWidget {
         const dragHandle = document.createElement("span");
         dragHandle.className = "purz-layer-drag-handle";
         dragHandle.draggable = true;
-        dragHandle.innerHTML = "⋮⋮";
+        dragHandle.innerHTML = "\u22EE\u22EE";
         dragHandle.title = "Drag to reorder";
         dragHandle.addEventListener("mousedown", () => {
             this._dragFromHandle = true;
@@ -3253,62 +845,49 @@ class InteractiveFilterWidget {
         });
         header.appendChild(toggle);
 
-        const select = document.createElement("select");
-        select.className = "purz-layer-select";
+        // Effect name button — opens searchable effect picker
+        const effectBtn = document.createElement("button");
+        effectBtn.className = "purz-layer-select";
+        effectBtn.style.textAlign = "left";
+        effectBtn.style.cursor = "pointer";
+        const currentEffectDef = this._getEffectDef(layer.effect);
+        effectBtn.textContent = currentEffectDef ? currentEffectDef.name : layer.effect;
 
-        // Group effects by category (including custom effects)
-        const allEffects = this._getAllEffects();
-        const categories = {};
-        for (const [key, effect] of Object.entries(allEffects)) {
-            const cat = effect.category || "Other";
-            if (!categories[cat]) categories[cat] = [];
-            categories[cat].push({ key, effect });
-        }
-
-        // Sort categories with Custom at the end
-        const categoryOrder = ["Basic", "Color", "Tone", "Detail", "Effects", "Artistic", "Creative", "Lens", "Custom"];
-        const sortedCategories = Object.entries(categories).sort((a, b) => {
-            const aIdx = categoryOrder.indexOf(a[0]);
-            const bIdx = categoryOrder.indexOf(b[0]);
-            return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+        effectBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            // Open effect picker anchored in the layer element
+            EffectPicker.open(
+                el,
+                this._getAllEffects(),
+                layer.effect,
+                async (newEffectKey) => {
+                    this._pushUndoState();
+                    layer.effect = newEffectKey;
+                    layer.params = {};
+                    const effectDef = this._getEffectDef(layer.effect);
+                    if (effectDef) {
+                        for (const param of effectDef.params) {
+                            layer.params[param.name] = param.default;
+                        }
+                        if (effectDef.needsSeed) {
+                            layer.params.seed = Math.random() * 1000;
+                        }
+                        await this._ensureCustomShaderCompiled(layer.effect);
+                    }
+                    this._renderLayers();
+                    this._updatePreview();
+                },
+                () => { /* close callback - no action needed */ }
+            );
         });
-
-        // Add options grouped by category
-        for (const [category, effects] of sortedCategories) {
-            const optgroup = document.createElement("optgroup");
-            optgroup.label = category;
-            for (const { key, effect } of effects) {
-                const opt = document.createElement("option");
-                opt.value = key;
-                opt.textContent = effect.name;
-                opt.selected = key === layer.effect;
-                optgroup.appendChild(opt);
-            }
-            select.appendChild(optgroup);
-        }
-        select.addEventListener("change", async () => {
-            layer.effect = select.value;
-            layer.params = {};
-            const effectDef = this._getEffectDef(layer.effect);
-            if (effectDef) {
-                for (const param of effectDef.params) {
-                    layer.params[param.name] = param.default;
-                }
-                // Generate seed for effects that need it
-                if (effectDef.needsSeed) {
-                    layer.params.seed = Math.random() * 1000;
-                }
-                // Ensure custom shader is compiled
-                await this._ensureCustomShaderCompiled(layer.effect);
-            }
-            this._renderLayers();
-            this._updatePreview();
-        });
-        header.appendChild(select);
+        // Stop event propagation to prevent node drag
+        effectBtn.addEventListener("pointerdown", (e) => e.stopPropagation(), true);
+        effectBtn.addEventListener("mousedown", (e) => e.stopPropagation(), true);
+        header.appendChild(effectBtn);
 
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "purz-layer-delete";
-        deleteBtn.textContent = "×";
+        deleteBtn.textContent = "\u00D7";
         deleteBtn.addEventListener("click", () => this._removeLayer(layer.id));
         header.appendChild(deleteBtn);
 
@@ -3351,9 +930,10 @@ class InteractiveFilterWidget {
                 }, true);
 
                 checkbox.addEventListener("change", () => {
+                    this._pushUndoState();
                     layer.params[param.name] = checkbox.checked;
                     this._updatePreview();
-                    this._syncToBackend();
+                    this._syncLayersToBackend();
                 });
 
                 row.appendChild(checkbox);
@@ -3392,9 +972,11 @@ class InteractiveFilterWidget {
             valueSpan.textContent = parseFloat(slider.value).toFixed(2);
 
             slider.addEventListener("input", () => {
-                layer.params[param.name] = parseFloat(slider.value);
-                valueSpan.textContent = parseFloat(slider.value).toFixed(2);
+                const newVal = parseFloat(slider.value);
+                layer.params[param.name] = newVal;
+                valueSpan.textContent = newVal.toFixed(2);
                 this._updatePreview();
+                this._pushUndoStateDebounced();
             });
 
             row.appendChild(slider);
@@ -3444,6 +1026,7 @@ class InteractiveFilterWidget {
             layer.opacity = parseFloat(opacitySlider.value);
             opacityValue.textContent = Math.round(layer.opacity * 100) + "%";
             this._updatePreview();
+            this._pushUndoStateDebounced();
         });
 
         opacityRow.appendChild(opacitySlider);
@@ -3456,7 +1039,17 @@ class InteractiveFilterWidget {
 
     _updatePreview() {
         if (!this.engine || !this.engine.imageLoaded) return;
-        this.engine.render(this.layers);
+
+        if (this.splitMode === "original") {
+            // Show only the original image
+            this.engine.renderOriginal();
+        } else if (this.splitMode === "split") {
+            // A/B split: left = original, right = filtered
+            this.engine.renderSplit(this.layers, this.splitPosition);
+        } else {
+            // Normal filtered view
+            this.engine.render(this.layers);
+        }
 
         // Debounce the backend sync (full-res render is expensive)
         if (this._syncTimeout) clearTimeout(this._syncTimeout);
@@ -3618,7 +1211,7 @@ class InteractiveFilterWidget {
 
         const renderedFrames = [];
 
-        // Store original seeds for layers that may animate
+        // Store original seeds for animated layers (grain with animate: true)
         const originalSeeds = {};
         for (const layer of this.layers) {
             if (layer.params.seed !== undefined) {
@@ -3646,7 +1239,6 @@ class InteractiveFilterWidget {
                 // Update seeds for animated effects (e.g., grain with animate: true)
                 for (const layer of this.layers) {
                     if (layer.enabled && layer.params.animate && originalSeeds[layer.id] !== undefined) {
-                        // Vary seed per frame for animated grain effect
                         layer.params.seed = originalSeeds[layer.id] + i * 100;
                     }
                 }
@@ -3665,13 +1257,6 @@ class InteractiveFilterWidget {
                 }
             } catch (err) {
                 console.error(`[Purz] Failed to process frame ${i}:`, err);
-            }
-        }
-
-        // Restore original seeds
-        for (const layer of this.layers) {
-            if (originalSeeds[layer.id] !== undefined) {
-                layer.params.seed = originalSeeds[layer.id];
             }
         }
 
@@ -3708,6 +1293,13 @@ class InteractiveFilterWidget {
         } catch (err) {
             console.error("[Purz] Failed to send rendered batch:", err);
             this._setStatus("Failed to sync batch", "error");
+        }
+
+        // Restore original seeds after batch processing
+        for (const layer of this.layers) {
+            if (originalSeeds[layer.id] !== undefined) {
+                layer.params.seed = originalSeeds[layer.id];
+            }
         }
 
         // Clean up and reset state
@@ -3785,7 +1377,7 @@ class InteractiveFilterWidget {
         if (this.isPlaying) return;
 
         this.isPlaying = true;
-        this.playBtn.innerHTML = "⏸";
+        this.playBtn.innerHTML = "\u23F8";
         this.playBtn.classList.add("playing");
 
         const frameTime = 1000 / this.playbackFps;
@@ -3800,7 +1392,7 @@ class InteractiveFilterWidget {
         if (!this.isPlaying) return;
 
         this.isPlaying = false;
-        this.playBtn.innerHTML = "▶";
+        this.playBtn.innerHTML = "\u25B6";
         this.playBtn.classList.remove("playing");
 
         if (this.playbackInterval) {
@@ -3828,6 +1420,7 @@ class InteractiveFilterWidget {
     }
 
     _reset() {
+        if (this.layers.length > 0) this._pushUndoState();
         this._stopAnimationLoop();
         this.layers = [];
         this._renderLayers();
@@ -3939,7 +1532,7 @@ class InteractiveFilterWidget {
             // Set minimum width - at least 250px or enough to show image reasonably
             this.minWidth = Math.max(250, Math.min(400, renderW + 40));
 
-            this._setStatus(`${img.naturalWidth}×${img.naturalHeight}`, "success");
+            this._setStatus(`${img.naturalWidth}\u00D7${img.naturalHeight}`, "success");
             fitHeight(this.node, this);
         };
 

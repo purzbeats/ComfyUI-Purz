@@ -4,6 +4,33 @@ All notable changes to ComfyUI-Purz are documented here. This includes every cha
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-02-05
+
+### Added
+- **Effect Search + Favorites + Recently Used** — Searchable effect picker replaces flat dropdown
+  - Fuzzy text search across 120+ effects ("chr" -> Chromatic Aberration)
+  - Star icon per effect for favorites (persisted to localStorage)
+  - Recently Used section (last 10 effects)
+  - Collapsible categories, keyboard navigation (arrow keys + Enter)
+- **Undo/Redo System** — Command pattern with JSON state snapshots
+  - Ctrl+Z / Ctrl+Shift+Z keyboard shortcuts and toolbar buttons
+  - 50-state undo stack, debounced slider changes
+- **A/B Split Preview (Before/After)** — Draggable vertical divider on preview canvas
+  - Left = original, right = filtered; toggle cycles Split / Original / Filtered
+  - WebGL scissor-based implementation (zero backend changes)
+- **Mask Support for Selective Filtering** — Optional MASK input on Interactive Filter node
+  - Per-pixel blend: `output = original * (1-mask) + filtered * mask`
+  - Works in both V1 and V3 node schemas
+
+### Changed
+- **Modular Frontend (ES Modules)** — Split monolithic JS file into 5 ES modules for maintainability
+  - `purz_interactive.js` — Main entry, widget class, extension registration
+  - `purz_filter_engine.js` — FilterEngine class, WebGL shaders, ping-pong rendering
+  - `purz_layer_manager.js` — EffectPicker, UndoManager, layout utilities
+  - `purz_preset_manager.js` — 40+ built-in presets data
+  - `purz_styles.js` — CSS injection
+  - Zero behavior change — pure structural refactoring
+
 ## [1.7.0] - 2026-02-05
 
 ### Changed

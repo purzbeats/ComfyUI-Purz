@@ -599,7 +599,7 @@ def apply_filter_stack(img_np, layers):
     return result
 
 
-def process_interactive_filter(image, node_id, output_dir, output_type, prefix_append, compress_level):
+def process_interactive_filter(image, node_id, output_dir, output_type, prefix_append, compress_level, mask=None):
     """
     Shared processing logic for the Interactive Image Filter node.
     Used by both V1 and V3 node implementations.
@@ -614,6 +614,7 @@ def process_interactive_filter(image, node_id, output_dir, output_type, prefix_a
         output_type: "temp" or "output"
         prefix_append: Random suffix for filename uniqueness
         compress_level: PNG compression level
+        mask: Optional PyTorch tensor [batch, H, W] float32 0-1 for selective filtering
 
     Returns:
         (output_image_tensor, ui_results_list)
@@ -740,6 +741,22 @@ def process_interactive_filter(image, node_id, output_dir, output_type, prefix_a
             except Exception as e:
                 print(f"[Purz Interactive] Failed to decode rendered frames: {e}")
 
+    # Apply mask blending if mask is provided
+    if mask is not None and output_image is not image:
+        # mask shape: [batch, H, W] -> expand to [batch, H, W, 1] for broadcasting
+        mask_tensor = mask
+        if mask_tensor.shape[0] == 1 and output_image.shape[0] > 1:
+            mask_tensor = mask_tensor.expand(output_image.shape[0], -1, -1)
+        # Resize mask to match image dimensions if needed
+        if mask_tensor.shape[1] != output_image.shape[1] or mask_tensor.shape[2] != output_image.shape[2]:
+            mask_tensor = torch.nn.functional.interpolate(
+                mask_tensor.unsqueeze(1),
+                size=(output_image.shape[1], output_image.shape[2]),
+                mode='bilinear', align_corners=False
+            ).squeeze(1)
+        mask_expanded = mask_tensor.unsqueeze(-1)  # [B, H, W, 1]
+        output_image = image * (1.0 - mask_expanded) + output_image * mask_expanded
+
     return output_image, results
 
 
@@ -766,6 +783,9 @@ class InteractiveImageFilter:
             "required": {
                 "image": ("IMAGE",),
             },
+            "optional": {
+                "mask": ("MASK",),
+            },
             "hidden": {
                 "prompt": "PROMPT",
                 "extra_pnginfo": "EXTRA_PNGINFO",
@@ -780,14 +800,15 @@ class InteractiveImageFilter:
     OUTPUT_NODE = True
 
     @classmethod
-    def IS_CHANGED(cls, image, prompt=None, extra_pnginfo=None, unique_id=None):
+    def IS_CHANGED(cls, image, mask=None, prompt=None, extra_pnginfo=None, unique_id=None):
         # Always re-execute to pick up filter changes
         return float("nan")
 
-    def process(self, image, prompt=None, extra_pnginfo=None, unique_id=None):
+    def process(self, image, mask=None, prompt=None, extra_pnginfo=None, unique_id=None):
         node_id = str(unique_id) if unique_id is not None else None
         output_image, results = process_interactive_filter(
-            image, node_id, self.output_dir, self.type, self.prefix_append, self.compress_level
+            image, node_id, self.output_dir, self.type, self.prefix_append, self.compress_level,
+            mask=mask
         )
         return {"ui": {"purz_images": results}, "result": (output_image,)}
 

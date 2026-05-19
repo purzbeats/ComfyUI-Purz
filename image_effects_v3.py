@@ -238,7 +238,7 @@ class ImageFlip(io.ComfyNode):
 
 
 class Pixelate(io.ComfyNode):
-    """Create a pixelated/mosaic effect."""
+    """Advanced pixelation with area averaging, retro palettes, dithering, grid lines, and mask support."""
 
     @classmethod
     def define_schema(cls) -> io.Schema:
@@ -246,10 +246,20 @@ class Pixelate(io.ComfyNode):
             node_id="PurzPixelate",
             display_name="Pixelate Effect (Purz)",
             category="Purz/Image/Effects",
-            description="Create a pixelated/mosaic effect",
+            description="Advanced pixelation with retro palettes, dithering, and grid lines",
             inputs=[
                 io.Image.Input("image"),
-                io.Int.Input("pixel_size", default=10, min=2, max=100, step=1, display_mode=SLIDER),
+                io.Int.Input("pixel_size", default=8, min=2, max=128, step=1, display_mode=SLIDER),
+                io.Int.Input("pixel_size_y", default=0, min=0, max=128, step=1, display_mode=SLIDER),
+                io.Combo.Input("downsample", options=["area", "nearest", "median"], default="area"),
+                io.Combo.Input("palette_mode", options=["none", "posterize", "game_boy", "nes", "c64", "pico8", "cga", "endesga32"], default="none"),
+                io.Int.Input("num_colors", default=8, min=2, max=256, step=1, display_mode=SLIDER),
+                io.Combo.Input("dithering", options=["none", "ordered_2x2", "ordered_4x4", "ordered_8x8", "floyd_steinberg"], default="none"),
+                io.Float.Input("dither_strength", default=1.0, min=0.0, max=2.0, step=0.05, display_mode=SLIDER),
+                io.Float.Input("grid_lines", default=0.0, min=0.0, max=0.5, step=0.01, display_mode=SLIDER),
+                io.Combo.Input("grid_color", options=["black", "dark_gray", "white"], default="black"),
+                io.Combo.Input("output_mode", options=["upscaled", "low_res"], default="upscaled"),
+                io.Mask.Input("mask", optional=True),
             ],
             outputs=[
                 io.Image.Output(display_name="image"),
@@ -257,27 +267,32 @@ class Pixelate(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, image, pixel_size) -> io.NodeOutput:
-        height = image.shape[1]
-        width = image.shape[2]
+    def execute(cls, image, pixel_size, pixel_size_y, downsample, palette_mode,
+                num_colors, dithering, dither_strength, grid_lines, grid_color,
+                output_mode, mask=None) -> io.NodeOutput:
+        from .image_effects import _pixelate_image
 
-        new_height = height // pixel_size
-        new_width = width // pixel_size
+        batch_size = image.shape[0]
+        results = []
 
-        # Downscale then upscale to create pixelated effect
-        downscaled = F.interpolate(
-            image.permute(0, 3, 1, 2),
-            size=(new_height, new_width),
-            mode='nearest'
-        )
-        pixelated = F.interpolate(
-            downscaled,
-            size=(height, width),
-            mode='nearest'
-        )
+        for i in range(batch_size):
+            img_np = image[i].cpu().numpy()
+            processed = _pixelate_image(
+                img_np, pixel_size, pixel_size_y, downsample, palette_mode,
+                num_colors, dithering, dither_strength, grid_lines, grid_color,
+                output_mode,
+            )
 
-        result = pixelated.permute(0, 2, 3, 1)
-        return io.NodeOutput(result)
+            if mask is not None and output_mode == "upscaled":
+                m = mask[i].cpu().numpy() if mask.shape[0] > 1 else mask[0].cpu().numpy()
+                if m.shape != img_np.shape[:2]:
+                    m = cv2.resize(m, (img_np.shape[1], img_np.shape[0]), interpolation=cv2.INTER_LINEAR)
+                m = m[:, :, np.newaxis]
+                processed = img_np * (1.0 - m) + processed * m
+
+            results.append(torch.from_numpy(processed.astype(np.float32)))
+
+        return io.NodeOutput(torch.stack(results))
 
 
 class EdgeDetect(io.ComfyNode):

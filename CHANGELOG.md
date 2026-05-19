@@ -4,6 +4,59 @@ All notable changes to ComfyUI-Purz are documented here. This includes every cha
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-05-18
+
+### Added
+- **Playback controls on all video preview widgets** (Media Extractor, Media Extractor Upload, Video Trim, Video Trim Upload)
+  - Extractor nodes: Play/Pause button drives the scrubber and timeline label via `timeupdate`. Pausing commits the current frame to the backend so whatever the user landed on is the frame output by the workflow. Clicking the preview also toggles play.
+  - Trim nodes: "Play Loop" plays only the trim segment — `timeupdate` seeks back to `trimStart` when `currentTime` reaches `trimEnd - 5ms`. Lets the user visualize the segment before queueing. Default unmuted on trim nodes (audio is part of the preview).
+  - Scrubbers / handles pause playback on pointerdown so manual interaction doesn't fight the playhead.
+  - Trim bake briefly mutes speakers; `captureStream()` still records the audio track regardless.
+
+
+- **Media Extractor node** (`Purz/Interactive` → "Media Extractor (Purz)") — Pick a single video frame, output it to the next node
+  - Standalone: includes its own "Load Video" button. **No upstream IMAGE input needed.**
+  - Pure client-side: video file is loaded with `<input type="file">` + `URL.createObjectURL`, plays in an HTML5 `<video>` element. The video itself **never touches the server.** Scrubbing is local seek.
+  - Always-visible timeline scrubber + First / Last buttons
+  - On commit (file load / First / Last / scrubber release): draws the current frame to a `<canvas>`, encodes as PNG, posts to `POST /purz/media_extractor/set_frame` — that single PNG is the only thing the backend sees
+  - Backend decodes the cached PNG → outputs as `[1, H, W, 3]` tensor
+  - Trade-off: video doesn't persist across browser reloads — only the workflow position. Use **Media Extractor Upload** if you need persistence.
+- **Media Extractor Upload node** (`Purz/Interactive` → "Media Extractor Upload (Purz)") — Persistent counterpart to Media Extractor
+  - Uploads the chosen video to ComfyUI's `input/` directory (chunked-stream upload via `POST /purz/media_extractor/upload`)
+  - Workflow serializes `video` (filename) and `frame_index` — survives browser reloads
+  - Backend decodes the requested frame with cv2 at execute time
+  - In-browser preview via the same `/view?type=input` URL ComfyUI already serves, so scrubbing is still local
+  - Endpoints: `POST /purz/media_extractor/upload`, `GET /purz/media_extractor/info/{filename}`, `GET /purz/media_extractor/list`
+- Shared backend module: `media_extractor.py` (V1 + helpers + routes), `media_extractor_v3.py` (V3 wrappers)
+- Frontend: `web/js/purz_media_extractor.js`, `web/js/purz_media_extractor_upload.js`
+- **Video Trim node** (`Purz/Interactive` → "Video Trim (Purz)") — Set in/out points on a locally-loaded video, output the trimmed segment as a comfy_api `VIDEO`
+  - Standalone: in-node "Load Video" button. Source file stays client-side.
+  - Custom dual-handle timeline with draggable start/end + playhead. Click-to-seek.
+  - **Auto-bake on Queue**: backend's `process()` sends a WebSocket event `purz.video_trim.bake_requested` and blocks (up to 10 min) until the frontend POSTs the encoded segment to `/purz/video_trim/set_baked?node_id=…` or acks via `/purz/video_trim/bake_ready`. No manual button.
+  - Frontend uses `<video>.captureStream()` → `MediaRecorder` (webm vp9/vp8 + opus). Re-queues with unchanged trim handles short-circuit via the `bake_ready` ack — no redundant re-bake.
+  - Backend wraps the cached webm in `VideoFromFile(path)` and outputs as `VIDEO` (via `io.Video.Output` on V3)
+  - Trade-off: first bake of a given trim takes real-time playback duration (5s trim = 5s bake). Audio is captured.
+- **Video Trim Upload node** (`Purz/Interactive` → "Video Trim Upload (Purz)") — Persistent counterpart
+  - Reuses `POST /purz/media_extractor/upload` to put the video in `input/`
+  - Standard widgets `video` (Combo) + `trim_start_seconds` (Float) + `trim_end_seconds` (Float) — workflow persists across reloads
+  - Backend uses `VideoFromFile(path).as_trimmed(start_time, duration, strict_duration=False)` — lazy windowed read, no re-encode
+  - Same dual-handle timeline UI, two-way bound to the float widgets
+- New endpoint: `POST /purz/video_trim/set_baked?node_id=…` (raw webm body, streams to temp dir)
+- Backend module: `video_trim.py` + `video_trim_v3.py`
+- Frontend: `web/js/purz_video_trim.js`, `web/js/purz_video_trim_upload.js`
+
+### Changed
+- **Pixelate node rewrite** — Upgraded from basic nearest-neighbor downscale to full-featured pixelation system
+  - **Downsample modes**: area averaging (default), nearest-neighbor, and block median
+  - **Retro palette quantization**: posterize (2-256 levels) + 6 named palettes — Game Boy, NES (55 colors), C64, PICO-8, CGA, Endesga 32
+  - **Dithering**: ordered Bayer (2x2, 4x4, 8x8) and Floyd-Steinberg error diffusion with adjustable strength
+  - **Grid lines**: configurable width and color (black/dark gray/white) overlaid on pixel boundaries
+  - **Separate X/Y pixel sizes**: non-square pixels via `pixel_size_y` (0 = match X)
+  - **Output mode**: upscaled (original resolution) or low_res (pixel-art resolution)
+  - **Mask support**: optional mask input for selective pixelation
+  - Updated in both V1 (`image_effects.py`) and V3 (`image_effects_v3.py`) schemas
+  - Shared `_pixelate_image()` pipeline function used by both versions
+
 ## [1.8.0] - 2026-02-05
 
 ### Added

@@ -15,6 +15,8 @@ try:
     # Import V1 interactive_filters module to register server routes
     # (routes are registered at import time via decorators)
     from . import interactive_filters as _interactive_filters_routes  # noqa: F401
+    from . import media_extractor as _media_extractor_routes  # noqa: F401
+    from . import video_trim as _video_trim_routes  # noqa: F401
 
     # V3 is available - define the combined extension
     class PurzExtension(ComfyExtension):
@@ -35,6 +37,8 @@ try:
                 AnimatedPolkaDotPattern, AnimatedNoisePattern
             )
             from .interactive_filters_v3 import InteractiveImageFilter
+            from .media_extractor_v3 import MediaExtractor, MediaExtractorUpload
+            from .video_trim_v3 import VideoTrim, VideoTrimUpload
 
             return [
                 # Image Effects
@@ -60,6 +64,10 @@ try:
                 AnimatedNoisePattern,
                 # Interactive
                 InteractiveImageFilter,
+                MediaExtractor,
+                MediaExtractorUpload,
+                VideoTrim,
+                VideoTrimUpload,
             ]
 
     async def comfy_entrypoint() -> PurzExtension:

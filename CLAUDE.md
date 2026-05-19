@@ -14,75 +14,148 @@ ComfyUI-Purz is a custom node pack for ComfyUI providing image effects, pattern 
 - Static and animated pattern generators
 - Traditional image processing effects
 
-**Project Stats**: ~1400 lines of Python, ~3500 lines of JavaScript, 120+ GLSL shader effects
+**Project Stats** (v1.8.0): ~4800 lines of Python, ~5050 lines of JavaScript, 120+ GLSL shader effects
 
 ## Architecture
 
 ### File Structure
 ```
 ComfyUI-Purz/
-├── __init__.py                   # Entry point, exports NODE_CLASS_MAPPINGS and WEB_DIRECTORY
-├── nodes.py                      # Aggregates all node mappings from source modules
-├── image_effects.py              # Traditional image processing nodes
-├── pattern_generators.py         # Static pattern generation nodes
-├── animated_patterns.py          # Animated pattern nodes with math utilities
-├── interactive_filters.py        # Interactive filter node with backend API and filter implementations
-├── web/
-│   └── js/
-│       └── purz_interactive.js   # Frontend WebGL renderer, UI, and batch processing
+├── __init__.py                       # Auto-detects V3 API; exports comfy_entrypoint (V3) OR NODE_CLASS_MAPPINGS (V1)
+├── nodes.py                          # V1 fallback: aggregates legacy NODE_CLASS_MAPPINGS from source modules
+├── utils.py                          # Shared helpers (hex_to_rgb, tensor/numpy/PIL conversion, vectorized HSV)
+├── image_effects.py                  # V1: traditional image processing nodes + shared _pixelate_image()
+├── image_effects_v3.py               # V3: same nodes via io.ComfyNode with slider UI
+├── pattern_generators.py             # V1: static pattern generation nodes
+├── pattern_generators_v3.py          # V3: same patterns via io.ComfyNode with slider UI
+├── animated_patterns.py              # V1: animated pattern nodes with math utilities
+├── animated_patterns_v3.py           # V3: same animated patterns with slider UI
+├── interactive_filters.py            # Backend: FILTER_REGISTRY, process_interactive_filter(), API routes (V1 + V3 share this)
+├── interactive_filters_v3.py         # V3 thin wrapper (~52 lines) delegating to process_interactive_filter()
+├── media_extractor.py                # V1: BOTH MediaExtractor (client-side) + MediaExtractorUpload (server-side) + shared helpers + routes
+├── media_extractor_v3.py             # V3 wrappers for both
+├── video_trim.py                     # V1: BOTH VideoTrim (client-side bake) + VideoTrimUpload (as_trimmed) + /set_baked route
+├── video_trim_v3.py                  # V3 wrappers for both
+├── web/js/                           # Frontend ES modules
+│   ├── purz_interactive.js           # Filter Live entry point, widget class, extension registration
+│   ├── purz_filter_engine.js         # FilterEngine: WebGL shaders, ping-pong rendering, batch processing
+│   ├── purz_layer_manager.js         # EffectPicker (search/favorites/recent), UndoManager, layout utils
+│   ├── purz_preset_manager.js        # Built-in preset data (40+ presets, was JSON files)
+│   ├── purz_styles.js                # CSS injection (Filter Live)
+│   ├── purz_media_extractor.js       # Media Extractor — client-side video, file picker + <video> + <canvas>
+│   ├── purz_media_extractor_upload.js # Media Extractor Upload — combo + upload + <video>-from-/view scrubber
+│   ├── purz_video_trim.js            # Video Trim — client-side bake via captureStream() + MediaRecorder
+│   └── purz_video_trim_upload.js     # Video Trim Upload — server-side trim via VideoFromFile.as_trimmed()
 ├── shaders/
-│   ├── effects.json              # Shader manifest with metadata
-│   ├── core/                     # Shared vertex/passthrough shaders
+│   ├── effects.json                  # Shader manifest with metadata
+│   ├── core/                         # Shared vertex/passthrough shaders
 │   ├── basic/, color/, tone/, detail/, effects/, artistic/, creative/, lens/
-│   │   └── *.glsl                # Categorized shader effect files
+│   │   └── *.glsl                    # Categorized shader effect files
 │   └── custom/
-│       ├── _template.glsl        # Template for creating custom effects
-│       └── *.glsl                # User-created custom shaders
-├── presets/
-│   └── *.json                    # Built-in and user-saved presets
-├── pyproject.toml                # Project metadata and version
-├── requirements.txt              # Python dependencies
-├── CLAUDE.md                     # This file - development guidance for AI assistants
-├── CHANGELOG.md                  # All changes (including ephemeral)
-├── README.md                     # User-facing documentation
-├── plan.md                       # Development roadmap
-└── painpoints.md                 # Documentation gaps and development challenges
+│       ├── _template.glsl            # Template for creating custom effects
+│       └── *.glsl                    # User-created custom shaders
+├── presets/                          # User-saved preset JSON files only (built-ins live in purz_preset_manager.js)
+├── pyproject.toml                    # Project metadata and version
+├── requirements.txt                  # Python dependencies
+├── CLAUDE.md                         # This file - development guidance for AI assistants
+├── CHANGELOG.md                      # All changes (including ephemeral)
+├── README.md                         # User-facing documentation
+├── plan.md                           # Development roadmap
+└── painpoints.md                     # Documentation gaps and development challenges
 ```
 
 ### Node Registration System
-- `__init__.py` exports `NODE_CLASS_MAPPINGS` and `NODE_DISPLAY_NAME_MAPPINGS` from `nodes.py`
-- `nodes.py` aggregates node mappings from four source modules (`image_effects`, `pattern_generators`, `animated_patterns`, `interactive_filters`)
-- Each source module defines its own `*_NODE_CLASS_MAPPINGS` and `*_NODE_DISPLAY_NAME_MAPPINGS` dicts
+`__init__.py` auto-detects which ComfyUI API is available:
+
+- **V3 path** (preferred): if `from comfy_api.latest import io, ComfyExtension` succeeds, it defines a `PurzExtension(ComfyExtension)` that returns all V3 node classes from `get_node_list()`, exposes `comfy_entrypoint()`, and **deliberately does not export `NODE_CLASS_MAPPINGS`** so ComfyUI uses the V3 entrypoint. It still imports `interactive_filters` at module load to register the V1 server routes (decorator side-effects).
+- **V1 fallback**: on ImportError, exports `NODE_CLASS_MAPPINGS` / `NODE_DISPLAY_NAME_MAPPINGS` from `nodes.py`, which aggregates the four V1 source modules.
+
+Each V1 source module defines its own `*_NODE_CLASS_MAPPINGS` and `*_NODE_DISPLAY_NAME_MAPPINGS` dicts. Each V3 module defines `io.ComfyNode` subclasses directly imported by `__init__.py`.
 
 ### Source Modules
 
-**image_effects.py** - Image processing nodes (Purz/Image/* categories)
+Each functional area has a V1 and V3 module. **Edit shared logic in the V1 module — V3 modules are thin wrappers.**
+
+**image_effects.py / image_effects_v3.py** - Image processing nodes (Purz/Image/* categories)
 - Color: Black & white conversion, color adjustment (brightness/contrast/saturation)
 - Transform: Rotation, flip/mirror
-- Effects: Blur (gaussian/box/motion), pixelate, edge detection (sobel/canny/laplacian)
+- Effects: Blur (gaussian/box/motion), edge detection (sobel/canny/laplacian)
+- **Pixelate**: shared `_pixelate_image()` pipeline supporting area/nearest/median downsample, posterize + retro palettes (Game Boy, NES, C64, PICO-8, CGA, Endesga 32), ordered Bayer + Floyd-Steinberg dithering, grid lines, non-square pixels, mask. Both V1 and V3 call the same pipeline.
 
-**pattern_generators.py** - Static pattern generation nodes (Purz/Patterns/Basic, Purz/Patterns/Noise)
+**pattern_generators.py / pattern_generators_v3.py** - Static pattern generation nodes (Purz/Patterns/Basic, Purz/Patterns/Noise)
 - Checkerboard, stripes, polka dots, grid, gradient, hexagon, noise patterns
 - All patterns support batch_size for multiple output images
 
-**animated_patterns.py** - Animated pattern nodes (Purz/Patterns/Animated)
+**animated_patterns.py / animated_patterns_v3.py** - Animated pattern nodes (Purz/Patterns/Animated)
 - Contains mathematical utility classes: `TextureMath`, `ColorRamp`, `WaveTextureGenerator`, `PatternTextureGenerator`
 - Animated versions of checkerboard, stripes, polka dots, and noise
 - Supports wave modulation with configurable wave types, directions, and math operations
 - frame_count parameter controls animation length
 
+**media_extractor.py / media_extractor_v3.py** - Two single-frame video pickers (Purz/Interactive). Both output a `[1, H, W, 3]` tensor.
+
+- **`PurzMediaExtractor`** (Path A — client-side, fast)
+  - No `IMAGE` input. Self-contained.
+  - Frontend uses `<input type="file">` + `URL.createObjectURL()` so the video file **never reaches the server**. HTML5 `<video>` for playback + scrub.
+  - On commit (file-load, First/Last, scrubber release): draws current frame to a `<canvas>`, `toDataURL("image/png")`, POSTs to `/purz/media_extractor/set_frame`. Backend keeps a per-node cache in `PURZ_MEDIA_FRAMES[node_id]` and decodes on execute (`decode_frame_b64`).
+  - Caveat: the video itself does not persist across browser reloads (only the cached PNG does, until the node is removed). For persistence use the Upload variant.
+
+- **`PurzMediaExtractorUpload`** (Path B — server-side, persistent)
+  - Node has standard widgets `video` (Combo populated from `input/` dir) and `frame_index` (Int) — both serialize into the workflow.
+  - "Upload Video" button POSTs the file to `/purz/media_extractor/upload` (streamed multipart write into `input/`); the combo refreshes via `/purz/media_extractor/list`.
+  - In-browser scrub still uses `<video>` against `/view?filename=...&type=input`, so scrubbing is local. `frame_index` is the source of truth and is two-way-bound to the scrubber.
+  - Backend opens with cv2 at execute time (`extract_frame_from_video`), seeks `cv2.CAP_PROP_POS_FRAMES`, converts BGR→RGB.
+  - `IS_CHANGED` / `fingerprint_inputs` mix file mtime with `frame_index` so same-name re-uploads invalidate the cache.
+
+Both flavors share `decode_frame_b64` / `extract_frame_from_video` / `list_input_videos` helpers in `media_extractor.py`. The V3 wrappers are thin and just call those helpers.
+
+**video_trim.py / video_trim_v3.py** - Two single-clip trim nodes (Purz/Interactive). Both output a `VIDEO` (`comfy_api.input_impl.VideoInput`).
+
+- **`PurzVideoTrim`** (Path A — client-side bake, auto on queue)
+  - No node inputs. Self-contained widget with file picker.
+  - **No manual bake button** — the bake fires automatically on workflow queue. Protocol mirrors Interactive Filter's batch handoff:
+    1. Backend `process()` (V1) / `execute()` (V3) sets `PURZ_TRIM_BAKE_READY[node_id] = False`, sends WebSocket event `purz.video_trim.bake_requested`, and enters a poll loop (≤10 min, 100 ms interval).
+    2. Frontend's `setup()` listens for the event. The node's widget either bakes fresh (`<video>.captureStream()` → `MediaRecorder` webm vp9/vp8+opus → `POST /purz/video_trim/set_baked?node_id=…`) or, if the cached bake matches the current trim handles, short-circuits via `POST /purz/video_trim/bake_ready`. Either endpoint sets the ready flag.
+    3. Backend exits the poll loop, reads `PURZ_TRIM_BAKED[node_id]`, returns `VideoFromFile(path)`.
+  - `bakeFresh` flag on the widget flips to `false` whenever the user moves a handle or loads a new video, so re-queues with the same trim skip re-baking.
+  - Bake duration = trim duration (real-time playback — `captureStream` only emits while playing). Audio is captured.
+
+- **`PurzVideoTrimUpload`** (Path B — server-side trim)
+  - Widgets: `video` (Combo from `input/`), `trim_start_seconds` (Float), `trim_end_seconds` (Float). All serialize with the workflow.
+  - Reuses `POST /purz/media_extractor/upload` for the actual file upload.
+  - Process: `VideoFromFile(path).as_trimmed(start_time=start, duration=end-start, strict_duration=False)`. Lazy windowed read — no re-encode, instant.
+  - `IS_CHANGED` / `fingerprint_inputs` mix file mtime with both trim points.
+
+Fallback for both: `_empty_video()` returns `VideoFromComponents` with one 64×64 black frame at 24 fps so downstream nodes never receive `None`.
+
+**utils.py** - Shared helpers; import from here rather than reimplementing
+- `hex_to_rgb()`, `hex_to_rgb_normalized()`
+- `tensor_to_numpy()`, `tensor_to_numpy_uint8()`, `numpy_to_tensor()`
+- `tensor_to_pil()`, `pil_to_tensor()`, `pil_to_numpy()`, `numpy_uint8_to_pil()`
+- `rgb_to_hsv_vectorized()`, `hsv_to_rgb_vectorized()` — vectorized NumPy HSV conversion (much faster than per-pixel Python loops; used by `hueShift` and `colorize` filters)
+
 ### ComfyUI Node Structure
-Each node class follows this pattern:
+
+**V1 (legacy) pattern** — used by `*.py` modules without `_v3` suffix:
 - `INPUT_TYPES` classmethod defines parameters with types and constraints
 - `RETURN_TYPES` tuple specifies output types (usually `("IMAGE",)`)
 - `FUNCTION` string names the processing method
 - `CATEGORY` string sets the node's location in ComfyUI menu
 - Processing methods return tuple of outputs
 
+**V3 pattern** — used by `*_v3.py` modules:
+- Subclass `io.ComfyNode`
+- `define_schema()` classmethod returns `io.Schema(node_id=..., display_name=..., category=..., inputs=[io.Image.Input(...), io.Float.Input(..., display_mode=io.NumberDisplay.slider), ...], outputs=[io.Image.Output(...)], hidden=[io.Hidden.unique_id, ...])`
+- `execute()` classmethod returns `io.NodeOutput(image, ui={...})`
+- `fingerprint_inputs()` replaces `IS_CHANGED()` (return `float("nan")` for always-re-execute)
+- Hidden params accessed via `cls.hidden.unique_id` (not function args)
+- **V3 nodes are immutable** — use local variables inside `execute()`, never `self.x = ...` (instance is reused)
+- Typed inputs: `io.Int.Input`, `io.Float.Input`, `io.Boolean.Input`, `io.Combo.Input`, `io.Image.Input`, `io.Mask.Input`. Use `display_mode=io.NumberDisplay.slider` for slider widgets.
+
 ### Image Format
 ComfyUI images are PyTorch tensors in format `[batch, height, width, channels]` with float32 values in 0-1 range.
 
-**Important**: When converting between formats:
+**Prefer the helpers in `utils.py`** over hand-rolled conversion. Raw conversion (when needed at module boundaries):
 - PyTorch → NumPy: `img_np = img_tensor.cpu().numpy()`
 - NumPy → PyTorch: `img_tensor = torch.from_numpy(img_np)`
 - NumPy → PIL: `pil_img = Image.fromarray((img_np * 255).astype(np.uint8))`
@@ -112,8 +185,8 @@ This node pack has no automated test suite. To test changes:
 5. For Interactive Filter changes, test both WebGL preview and workflow output
 
 ### Development Workflow
-1. Edit Python node code in `image_effects.py`, `pattern_generators.py`, `animated_patterns.py`, or `interactive_filters.py`
-2. For frontend changes, edit `web/js/purz_interactive.js`
+1. Edit Python node code in the V1 module (`image_effects.py`, `pattern_generators.py`, `animated_patterns.py`, `interactive_filters.py`). V3 modules generally only need a matching schema update — the V3 `interactive_filters_v3.py` is a 52-line wrapper that calls back into the V1 module's shared helpers (`process_interactive_filter`, `FILTER_REGISTRY`, `_pixelate_image`), so changing logic in V3 alone won't take effect when V1 is selected.
+2. For frontend changes, edit the appropriate ES module in `web/js/` (engine vs. layer-manager vs. presets vs. styles vs. main entry)
 3. For shader changes, edit files in `shaders/` directory or add custom shaders to `shaders/custom/`
 4. Update CHANGELOG.md immediately with every change (even experimental ones)
 5. When ready to release, update version in `pyproject.toml`, move CHANGELOG entries, and update README.md
@@ -195,31 +268,22 @@ However, for complex widgets we still need patterns like overriding `onExecuted`
 
 ## Nodes 2.0 and V3 Schema
 
-### Current Status
-- **Nodes 2.0** is the new Vue-based rendering system (toggle in ComfyUI menu)
-- **V3 Schema** is documented for **backend only** (Python node definitions)
-- **No frontend migration guide exists** - our DOM widget approach may or may not work
+This pack ships **both V1 and V3** node definitions side-by-side. `__init__.py` picks at import time. V3 is the path forward; V1 remains as a fallback for older ComfyUI installs.
 
-### V3 Backend Changes (for future reference)
 **Docs**: https://docs.comfy.org/custom-nodes/v3_migration
 
-| Aspect | V1 (Current) | V3 |
-|--------|--------------|-----|
-| Base class | Generic | `io.ComfyNode` |
-| Schema | `INPUT_TYPES()` | `define_schema()` returning `Schema` |
-| Returns | `RETURN_TYPES` tuple | `outputs` in Schema |
+| Aspect | V1 | V3 |
+|--------|------|-----|
+| Base class | Plain class | `io.ComfyNode` |
+| Schema | `INPUT_TYPES()` | `define_schema()` returning `io.Schema` |
+| Returns | `RETURN_TYPES` tuple | `outputs=[...]` in Schema |
 | Cache control | `IS_CHANGED()` | `fingerprint_inputs()` |
-| Execution | Custom function name | `execute()` method |
+| Execution | Custom-named method via `FUNCTION` | `execute()` classmethod |
+| Hidden params | function args (`unique_id`, ...) | `cls.hidden.unique_id` |
+| Instance state | `self.x = ...` OK | Immutable — use locals only |
+| Numeric UI | Default number widget | Slider via `display_mode=io.NumberDisplay.slider` |
 
-**We currently use V1 patterns.** V3 migration is optional but may become required.
-
-### What We Don't Know About Nodes 2.0
-- Does `addDOMWidget()` work?
-- Do our event propagation hacks work?
-- Is there a Vue-native widget system?
-- When will legacy patterns break?
-
-See `painpoints.md` for full discussion of documentation gaps.
+**Frontend / DOM widgets in Nodes 2.0**: still partially uncharted. Our `addDOMWidget()` + `onExecuted` patterns currently work on the Vue rendering system, but no official Vue-native widget API exists yet. See `painpoints.md` for open questions.
 
 ## Node Naming Convention
 - Class names: PascalCase descriptive names (e.g., `CheckerboardPattern`)
@@ -234,10 +298,21 @@ The Interactive Filter node demonstrates advanced patterns for real-time preview
 - **Frontend**: WebGL shaders for real-time preview in browser
 - **Backend**: Numpy/PIL implementations of same filters for workflow output
 - **Sync**: Frontend sends filter state to backend via REST API, backend applies on execution
+- **V1/V3 share one backend**: `interactive_filters.py` defines `process_interactive_filter()` and the `FILTER_REGISTRY` dict. Both `interactive_filters.py` (V1) and `interactive_filters_v3.py` (V3) call into the same helper — V3 is a ~52-line wrapper.
 
 ### Key Files
-- `interactive_filters.py` - Python backend with filter implementations and API routes
-- `web/js/purz_interactive.js` - JavaScript frontend with WebGL shaders and UI
+- `interactive_filters.py` - V1 node + shared `process_interactive_filter()` helper + `FILTER_REGISTRY` + API routes
+- `interactive_filters_v3.py` - V3 thin wrapper, delegates to `process_interactive_filter()`
+- `web/js/purz_interactive.js` - Main entry, widget class, extension registration
+- `web/js/purz_filter_engine.js` - `FilterEngine` (WebGL shaders, ping-pong, batch processing)
+- `web/js/purz_layer_manager.js` - `EffectPicker` (search/favorites/recent), `UndoManager`, layout
+
+### Filter Registry Pattern
+The 400-line if/elif chain in `apply_filter()` was replaced with a dispatch table. To add a new filter:
+
+1. Write a handler with the standard signature: `_filter_<name>(result, params, original) -> np.ndarray`
+2. Register it: `FILTER_REGISTRY["<name>"] = _filter_<name>`
+3. Reuse shared helpers in the same module: `_compute_luminance()`, `_to_grayscale_rgb()`, `LUMA_COEFFS`, and the vectorized HSV helpers in `utils.py`
 
 ### Critical Patterns Learned
 
@@ -256,24 +331,36 @@ Frontend reads from `message.purz_images` instead of `message.images`.
 #### Forcing Node Re-execution (Disabling Cache)
 ComfyUI caches node outputs by default. For nodes that need fresh execution every time:
 ```python
+# V1
 @classmethod
 def IS_CHANGED(cls, image, **kwargs):
     return float("nan")  # NaN always triggers re-execution
+
+# V3 — same idea, renamed method
+@classmethod
+def fingerprint_inputs(cls, **kwargs) -> float:
+    return float("nan")
 ```
 
 #### Hidden Parameters
-Access node ID and other metadata via hidden inputs:
 ```python
+# V1 — declare in INPUT_TYPES, receive as function args
 @classmethod
 def INPUT_TYPES(cls):
     return {
         "required": { "image": ("IMAGE",) },
         "hidden": {
-            "unique_id": "UNIQUE_ID",  # Node's unique ID
+            "unique_id": "UNIQUE_ID",
             "prompt": "PROMPT",
             "extra_pnginfo": "EXTRA_PNGINFO",
         }
     }
+
+# V3 — declare in Schema, access via cls.hidden.*
+inputs=[io.Image.Input("image")],
+hidden=[io.Hidden.unique_id, io.Hidden.prompt, io.Hidden.extra_pnginfo],
+# In execute():
+node_id = str(cls.hidden.unique_id) if cls.hidden and cls.hidden.unique_id else None
 ```
 
 #### Frontend-Backend State Sync
@@ -299,9 +386,41 @@ api.fetchApi("/purz/interactive/set_layers", {
 });
 ```
 
+### v1.8.0 Frontend Features
+
+These features live entirely in the frontend ES modules and require no backend coordination unless noted.
+
+- **Effect search + favorites + recently used** (`purz_layer_manager.js`'s `EffectPicker`): fuzzy text search across 120+ effects, per-effect star (persisted to `localStorage`), recently used section (last 10), keyboard nav. Replaces the flat dropdown.
+- **Undo / redo** (`UndoManager` in `purz_layer_manager.js`): command pattern with JSON state snapshots, 50-state stack, debounced slider changes, Ctrl+Z / Ctrl+Shift+Z.
+- **A/B split preview**: WebGL-scissor-based vertical divider on the preview canvas (left = original, right = filtered). Pure frontend — **no backend changes**, no extra render pass for the source image.
+- **Mask support**: optional `MASK` input on the Interactive Filter node. Backend blends per-pixel: `output = original * (1-mask) + filtered * mask`. Implemented in both V1 and V3 schemas; applied inside `process_interactive_filter()`.
+
 ## Backend API Endpoints
 
-All Interactive Filter backend endpoints are registered in `interactive_filters.py`:
+Interactive Filter endpoints are registered in `interactive_filters.py`; Media Extractor in `media_extractor.py`.
+
+- `POST /purz/media_extractor/set_frame` - Cache current frame for `PurzMediaExtractor` (client-side variant)
+  - Body: `{ node_id: string|number, frame: "data:image/png;base64,..." | "" }`
+  - Empty `frame` clears the cache. Returns: `{ success: true }`
+
+- `POST /purz/media_extractor/upload` - Multipart upload of a video into `input/` (for `PurzMediaExtractorUpload`)
+  - Form field `video`. Streamed in 64KB chunks. Auto-renames on collision.
+  - Returns: `{ name, total_frames, fps, width, height }`
+
+- `GET /purz/media_extractor/info/{filename}` - cv2-derived metadata for a video in `input/`
+  - Returns: `{ total_frames, fps, width, height }`
+
+- `GET /purz/media_extractor/list` - List video files currently in `input/`
+  - Returns: `{ videos: array<string> }`
+
+- `POST /purz/video_trim/set_baked?node_id=…` - Receive a Path-A baked trim segment
+  - `node_id` is a query parameter; the raw request body is the webm bytes (streamed to disk).
+  - Sets `PURZ_TRIM_BAKE_READY[node_id] = True` so the backend's poll loop unblocks.
+  - Empty body clears the cached blob (still marks ready). Returns: `{ success: true, bytes?: number }`
+
+- `POST /purz/video_trim/bake_ready` - Ack a bake request without writing a new blob
+  - Body: `{ node_id }`. Used when the frontend's cached bake matches the current trim, or when bake failed and we want to unblock the backend so it falls back to an empty video.
+  - Returns: `{ success: true }`
 
 - `POST /purz/interactive/set_layers` - Store filter layer configuration from frontend
   - Body: `{ node_id: string, layers: array }`
@@ -642,9 +761,11 @@ Without this pre-compilation, custom effects render black frames because `batchE
 ## Preset System
 
 ### Built-in Presets (40+)
-Presets are stored as JSON files in the `presets/` directory and organized by category.
+**Built-in presets live in `web/js/purz_preset_manager.js`** as inline JavaScript data — not as JSON files. They ship with the frontend bundle and load instantly.
 
-**Important**: User-saved custom presets are also stored in `presets/` directory at the root of this node pack. When a user saves a preset in the Interactive Filter UI, it creates a JSON file here. These files may be lost during uninstall/reinstall, so users should back them up. The README.md warns users about this.
+**User-saved custom presets** are written to the `presets/` directory at the root of this node pack as JSON files. When a user clicks Save in the Interactive Filter UI, a JSON file is created here. These files can be lost during uninstall/reinstall, so users should back them up. The README.md warns users about this.
+
+Built-in preset categories (defined in `purz_preset_manager.js`):
 - **Film**: Classic, Vintage Film, Cinematic, Noir, etc.
 - **Portrait**: Soft Skin, Warm Portrait, Cool Portrait, etc.
 - **Landscape**: Vivid Nature, Golden Hour, Misty Morning, etc.

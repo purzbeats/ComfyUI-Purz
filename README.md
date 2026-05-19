@@ -4,7 +4,18 @@ A comprehensive node pack for ComfyUI that provides powerful image effects, patt
 
 <img width="3573" height="2177" alt="Example Workflow" src="https://github.com/user-attachments/assets/b9c4c61d-f5f1-49fb-84a9-f47b2f2c9e4a" />
 
-## 🎚️ V3 Schema with Slider UI (NEW in v1.6.0!)
+## 🎬 What's new in v2.0.0
+
+- **Media Extractor** — Standalone "Load Video" node, scrub a local video, output a single chosen frame. Two flavors:
+  - **Media Extractor (Purz)** — pure client-side; the video file never reaches the server. Only the chosen PNG is sent on commit.
+  - **Media Extractor Upload (Purz)** — uploads to ComfyUI's `input/` directory; selection persists across browser reloads.
+- **Video Trim** — Set in / out points on a video, output the trimmed segment as a `VIDEO`. Two flavors:
+  - **Video Trim (Purz)** — client-side; trim segment is baked in-browser via `MediaRecorder` (webm vp9/vp8 + opus) and shipped up once. Source file stays local.
+  - **Video Trim Upload (Purz)** — server-side `VideoFromFile.as_trimmed()` — lazy windowed read, no re-encode, instant.
+- **Playback in every preview widget** — Play / Pause that drives the scrubber; trim nodes get a Play-Loop that auto-rewinds inside the trim handles so you can preview the segment.
+- **Pixelate node rewrite** — Now a full retro-pixel pipeline: area / nearest / median downsampling, posterize + named palettes (Game Boy, NES, C64, PICO-8, CGA, Endesga 32), ordered Bayer + Floyd-Steinberg dithering, grid-line overlay, separate X/Y pixel sizes, optional MASK input.
+
+## 🎚️ V3 Schema with Slider UI
 
 All nodes now support ComfyUI's V3 schema with **slider widgets** for numeric inputs - providing a much better user experience than the default number pickers with increment buttons.
 
@@ -33,6 +44,28 @@ All nodes now support ComfyUI's V3 schema with **slider widgets** for numeric in
 - **Chunked Upload** - Large batches are uploaded efficiently in chunks to handle any video length
 
 ## 🚀 Features
+
+### 🎬 Media Extractor & Video Trim *(new in v2.0.0)*
+
+Four standalone video nodes that load their own files — no upstream IMAGE batch / VHS loader required.
+
+**Media Extractor (Purz)** — Frame picker, fully client-side
+- Built-in "Load Video" button → HTML5 `<video>` + `<canvas>`. Video bytes never leave the browser.
+- Always-visible scrubber + First / Last buttons + Play / Pause. Pausing or releasing the scrubber commits the current frame.
+- Output: a single `[1, H, W, 3]` IMAGE tensor for downstream nodes.
+
+**Media Extractor Upload (Purz)** — Frame picker, persistent
+- Uploads the chosen video to `input/`. Workflow remembers the filename + `frame_index`.
+- Backend decodes the chosen frame with cv2 on execute.
+
+**Video Trim (Purz)** — Client-side trim
+- "Load Video" + dual-handle timeline + Play Loop (loops within the trim handles for preview).
+- On Queue: front-end bakes the segment via `<video>.captureStream()` → `MediaRecorder` (webm vp9/vp8 + opus) and uploads the encoded blob once. Re-queues with unchanged handles short-circuit.
+- Output: comfy_api `VIDEO`. Trade-off: bake cost is real-time playback duration of the trim.
+
+**Video Trim Upload (Purz)** — Server-side trim
+- Same upload flow as Media Extractor Upload, but adds `trim_start_seconds` / `trim_end_seconds` widgets.
+- Backend uses `VideoFromFile(path).as_trimmed(start, duration)` — lazy, instant, no re-encode.
 
 ### 🎛️ Interactive Image Filter
 A powerful real-time image filter system with WebGL preview:
@@ -67,7 +100,7 @@ Transform your images with professional-grade effects:
 - **Blur Effects** - Gaussian, box, and motion blur with adjustable intensity
 - **Color Adjustments** - Fine-tune brightness, contrast, and saturation
 - **Image Flipping** - Horizontal, vertical, and combined flipping options
-- **Pixelate Effect** - Create retro-style pixelated images
+- **Pixelate Effect** *(v2.0.0 rewrite)* - Full retro-pixel pipeline: area / nearest / median downsampling, posterize + named palettes (Game Boy, NES, C64, PICO-8, CGA, Endesga 32), Bayer + Floyd-Steinberg dithering, grid lines, non-square pixels, optional MASK input
 - **Edge Detection** - Sobel, Canny, and Laplacian edge detection algorithms
 
 ### 🎨 Pattern Generation
@@ -109,7 +142,11 @@ Bring your patterns to life with mathematical precision:
 ## 🎯 Node Categories
 
 ### Purz/Interactive
-- **Interactive Filter** - Real-time layer-based image filter with 42 effects, WebGL preview, and video batch support
+- **Interactive Filter** - Real-time layer-based image filter with 120+ effects, WebGL preview, and video batch support
+- **Media Extractor** - Load a video locally, scrub to a frame, output that single frame *(client-side)*
+- **Media Extractor Upload** - Same, but the video persists in `input/` across reloads *(server-side)*
+- **Video Trim** - Load a video locally, set in/out points, output the trimmed `VIDEO` *(client-side bake)*
+- **Video Trim Upload** - Same, persistent across reloads, lazy `VideoFromFile.as_trimmed()` on the backend
 
 ### Purz/Image/Color
 - **Image to Black & White** - Convert color images to grayscale
@@ -213,6 +250,9 @@ Future plans for ComfyUI-Purz:
 - [x] **Undo/Redo** - Full undo/redo system with Ctrl+Z / Ctrl+Shift+Z
 - [x] **A/B Split Preview** - Before/after comparison with draggable divider
 - [x] **Mask Support** - Apply filter effects selectively using masks
+- [x] **Media Extractor** - Standalone video frame picker (v2.0.0)
+- [x] **Video Trim** - In/out point trimming with `VIDEO` output (v2.0.0)
+- [x] **Pixelate Rewrite** - Retro palettes, dithering, grid lines (v2.0.0)
 - [ ] **Native UI Refactor** - Refactor effects layers window to use native ComfyUI elements for proper resize on V1/V2
 
 ### Creating Custom Effects
@@ -234,6 +274,12 @@ You can create your own WebGL filter effects:
 4. Restart ComfyUI - your effect will appear in the dropdown
 
 ## 📋 Changelog
+
+### v2.0.0 (2026-05-18)
+- **Media Extractor + Media Extractor Upload** — Standalone frame-picker nodes. Path A keeps the video file in the browser; only the chosen frame goes to the backend. Path B uploads to `input/` for cross-reload persistence.
+- **Video Trim + Video Trim Upload** — Standalone trim nodes that output a `VIDEO`. Path A bakes the segment in-browser via `MediaRecorder` and auto-fires on Queue (no manual bake button). Path B uses `VideoFromFile.as_trimmed()` for instant lazy trims.
+- **Playback in every video preview** — Play / Pause that drives the scrubber on extractor nodes; Play Loop that auto-rewinds inside the trim handles on trim nodes. Click-anywhere-on-preview also toggles play.
+- **Pixelate node rewrite** — Full retro-pixel pipeline: area / nearest / median downsampling, posterize + 6 named palettes (Game Boy, NES, C64, PICO-8, CGA, Endesga 32), ordered Bayer + Floyd-Steinberg dithering, grid lines, separate X/Y pixel sizes, optional MASK input. Shared `_pixelate_image()` used by V1 and V3.
 
 ### v1.8.0 (2026-02-05)
 - **Effect Search + Favorites + Recently Used** - Searchable effect picker with fuzzy search, star favorites, recently used section, collapsible categories, and keyboard navigation

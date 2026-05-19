@@ -4,6 +4,37 @@ All notable changes to ComfyUI-Purz are documented here. This includes every cha
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-05-19
+
+### Added
+- **Draggable green crop overlay** — All four crop widgets now let you click and drag anywhere on the preview canvas to position the crop window. Anchor snaps to "center" on drag start so `offset_x` / `offset_y` get their full `-1..+1` range no matter which anchor preset was selected. Uses pointer capture (drag continues even when the cursor leaves the canvas), has a 3-pixel dead-zone so accidental clicks don't move the box, and the synthesized click after a real drag is suppressed so video previews don't toggle play/pause when you let go.
+- Shared `attachCropDrag(canvas, getState, applyOffsets)` helper in `purz_resize_common.js` plus the `computeCropRect()` math it builds on.
+
+### Fixed
+- **Path-A bake / cached-PNG race hardening** — Image Crop and Video Crop client-side bakes now `f.flush()` + `os.fsync()` after writing the baked file, sleep 50 ms between the wait-loop exit and reading the cache to let Windows write buffers settle, and force eager PIL decode (`pil.load()` before `.convert("RGB")`) so partial-write errors surface as catchable exceptions instead of silent fallback.
+- Hardened `cls.hidden.unique_id` check (uses `is not None` instead of falsy) so a numeric node id of `0` doesn't get mistaken for "missing".
+- Named diagnostic prints in `_read_cached_image_with_diag` / `_read_cached_video_with_diag` so a 64×64 fallback now tells you whether the dict was empty, the file was missing, the file was empty, or PIL failed to decode it.
+
+### Changed
+- **Crop preview now shows the full source with a green crop-rectangle overlay** instead of the cropped result. Canvas dimensions match the source aspect, so changing the output aspect / anchor / zoom / offset just moves the green rectangle — the source view stays put. Area outside the crop is dimmed so the kept region is obvious. A small badge in the corner shows output dimensions + fit mode. Applies to all four crop widgets (Image Crop, Image Crop Upload, Video Crop, Video Crop Upload). The actual bake / server-side resize still produces the cropped result at full output resolution.
+
+### Performance
+- **Video Crop preview is now smooth during playback** — capped the preview canvas at 720px on its longest side (the crop math is aspect-driven, so a smaller canvas is visually identical), and added a `requestVideoFrameCallback` loop so the preview updates on every actual video frame instead of waiting for the throttled `timeupdate` event. Applies to both Path A (`Video Crop`) and Path B (`Video Crop Upload`).
+- **Video Crop Upload server-side resize switched to OpenCV** — per-frame resize now uses `cv2.INTER_AREA` for downscale / `cv2.INTER_LANCZOS4` for upscale instead of PIL `Image.LANCZOS`. Roughly 10× faster on large videos; bulk uint8 conversion happens once instead of per-frame PIL conversion. Path A bake is still real-time-bound (MediaRecorder limitation).
+
+### Added
+- **Image Crop + Image Crop Upload nodes** (`Purz/Interactive`) — Standalone image crop / resize. Output: `IMAGE`.
+- **Video Crop + Video Crop Upload nodes** (`Purz/Interactive`) — Standalone video crop / resize. Output: `VIDEO`.
+  - Each pair: Path A loads a local file (source stays in the browser); Path B uploads to ComfyUI's `input/` directory for cross-reload persistence.
+  - Live output preview canvas reflects width / height / aspect / fit / anchor / bg / zoom / offset in real time.
+  - Fit modes: **Stretch**, **Cover** (anchor-positioned crop), **Contain** (letterbox), **Crop** (Cover plus zoom + offset_x / offset_y).
+  - 14 aspect-ratio presets. Aspect change anchors the output's longest side to the source's longest side (so 1920×1080 + 9:21 becomes 823×1920, not 1920×4480).
+  - Path A bake protocol: backend fires `purz.image_crop.bake_requested` / `purz.video_crop.bake_requested`; widget renders to canvas (PNG via `toBlob`, or `MediaRecorder` webm with audio passthrough for video) and POSTs to `/purz/image_crop/set_baked` / `/purz/video_crop/set_baked`. Re-queues with unchanged params short-circuit via the matching `/bake_ready` endpoint.
+  - Path B uses the existing `/purz/media_extractor/upload` route for file uploads.
+- Backend modules: `image_crop.py` (shared math helpers + routes), `video_crop.py` (imports the per-frame helpers from image_crop), plus V3 wrappers `image_crop_v3.py` / `video_crop_v3.py`.
+- Frontend: shared `web/js/purz_resize_common.js` (drawFit, aspect presets, controls panel, `deriveDimsFromSource`) + four widget files (`purz_image_crop.js`, `purz_image_crop_upload.js`, `purz_video_crop.js`, `purz_video_crop_upload.js`).
+- New endpoints: `POST /purz/image_crop/set_baked`, `POST /purz/image_crop/bake_ready`, `POST /purz/video_crop/set_baked`, `POST /purz/video_crop/bake_ready`.
+
 ## [2.0.0] - 2026-05-18
 
 ### Added

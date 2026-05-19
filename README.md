@@ -4,6 +4,13 @@ A comprehensive node pack for ComfyUI that provides powerful image effects, patt
 
 <img width="3573" height="2177" alt="Example Workflow" src="https://github.com/user-attachments/assets/b9c4c61d-f5f1-49fb-84a9-f47b2f2c9e4a" />
 
+## ✂️ What's new in v2.1.0
+
+- **Image Crop + Video Crop** — Standalone crop / resize nodes with a live preview canvas, a draggable green crop overlay, 14 aspect-ratio presets, and four fit modes (Stretch / Cover / Contain / Crop). Output: single `IMAGE` or single `VIDEO`. Each comes in two flavors: client-side (source file stays in the browser) and upload (persists across reloads, processed server-side).
+- **Draggable crop overlay** — Click and drag the green rectangle on any crop preview to position the crop window. Anchor + offset_x / offset_y update automatically so the workflow knows exactly where to crop.
+- **Playback controls on every video preview** — Extractor nodes get Play / Pause that drives the scrubber and commits the current frame on pause. Trim nodes get **Play Loop**, which auto-rewinds inside the trim handles so you can preview the segment exactly as it'll render.
+- **Crop preview smoothness** — Preview canvas capped at 720px (longest side) and driven by `requestVideoFrameCallback` so playback updates every frame, not every 250 ms. Server-side video resize switched to OpenCV (~10× faster than per-frame PIL).
+
 ## 🎬 What's new in v2.0.0
 
 - **Media Extractor** — Standalone "Load Video" node, scrub a local video, output a single chosen frame. Two flavors:
@@ -45,27 +52,68 @@ All nodes now support ComfyUI's V3 schema with **slider widgets** for numeric in
 
 ## 🚀 Features
 
-### 🎬 Media Extractor & Video Trim *(new in v2.0.0)*
+### 🎛️ Interactive Media Nodes *(v2.0.0+)*
 
-Four standalone video nodes that load their own files — no upstream IMAGE batch / VHS loader required.
+Eight standalone media nodes that load their own files. No upstream IMAGE batch or VHS loader required — every node has its own "Load …" button (client-side variant) or "Upload …" button (server-side variant that persists across browser reloads).
 
-**Media Extractor (Purz)** — Frame picker, fully client-side
-- Built-in "Load Video" button → HTML5 `<video>` + `<canvas>`. Video bytes never leave the browser.
-- Always-visible scrubber + First / Last buttons + Play / Pause. Pausing or releasing the scrubber commits the current frame.
-- Output: a single `[1, H, W, 3]` IMAGE tensor for downstream nodes.
+All four feature pairs share the same client-side / server-side split:
 
-**Media Extractor Upload (Purz)** — Frame picker, persistent
-- Uploads the chosen video to `input/`. Workflow remembers the filename + `frame_index`.
-- Backend decodes the chosen frame with cv2 on execute.
+- **Client-side (Path A)** — source file is wrapped in a blob URL and never reaches the server until you queue the workflow. Only the final result (a PNG, a webm, or a small JSON) hits the backend. Source state doesn't survive a browser refresh.
+- **Upload (Path B)** — source file goes into ComfyUI's `input/` directory the moment you pick it. Workflow serializes the filename and the resize / trim parameters so reloading the page restores everything.
 
-**Video Trim (Purz)** — Client-side trim
-- "Load Video" + dual-handle timeline + Play Loop (loops within the trim handles for preview).
-- On Queue: front-end bakes the segment via `<video>.captureStream()` → `MediaRecorder` (webm vp9/vp8 + opus) and uploads the encoded blob once. Re-queues with unchanged handles short-circuit.
-- Output: comfy_api `VIDEO`. Trade-off: bake cost is real-time playback duration of the trim.
+---
 
-**Video Trim Upload (Purz)** — Server-side trim
-- Same upload flow as Media Extractor Upload, but adds `trim_start_seconds` / `trim_end_seconds` widgets.
-- Backend uses `VideoFromFile(path).as_trimmed(start, duration)` — lazy, instant, no re-encode.
+#### 🎯 Media Extractor / Media Extractor Upload — frame picker
+
+Load a video, scrub or play through it, hit pause on the frame you want. The selected frame becomes the IMAGE output.
+
+> 📸 *Add screenshot of Media Extractor node here*
+
+- Built-in Play / Pause that drives the scrubber via `requestVideoFrameCallback`.
+- First / Last buttons jump to the first or last frame.
+- Pausing or releasing the scrubber commits the current frame.
+- Output: `IMAGE` (`[1, H, W, 3]` tensor).
+
+---
+
+#### ✂️ Video Trim / Video Trim Upload — clip trimmer
+
+Load a video, drag the dual-handle timeline to set in / out points. Hit Play Loop to preview the trim exactly as it'll render.
+
+> 📸 *Add screenshot of Video Trim node here*
+
+- Dual-handle timeline with draggable start / end + click-to-seek + playhead.
+- **Play Loop** loops playback between the handles for accurate preview.
+- **Auto-bake on Queue** (Path A): backend signals the frontend, which encodes the trim as webm via `MediaRecorder` (audio preserved) and ships it up once. Re-queues with unchanged handles short-circuit instantly.
+- Server-side trim (Path B): `VideoFromFile.as_trimmed(start, duration)` — lazy windowed read, no re-encode, instant.
+- Output: `VIDEO`.
+
+---
+
+#### 🖼️ Image Crop / Image Crop Upload *(new in v2.1.0)* — image crop / resize
+
+Load an image, set the output dimensions, pick a fit mode, **drag the green overlay** to position the crop. Live preview shows the source with the crop region highlighted.
+
+> 📸 *Add screenshot of Image Crop node here*
+
+- 14 aspect-ratio presets (1:1, 4:3, 3:4, 16:9, 9:16, 21:9, 9:21, 3:2, 2:3, 5:4, 4:5, 2:1, 1:2, Free).
+- Aspect change anchors the output's longest side to the source's longest side (no more 1920×4480 surprises for 9:21 on a 1080p source).
+- Four fit modes: **Stretch** (squish), **Cover** (anchor-positioned crop), **Contain** (letterbox with bg color), **Crop** (Cover plus manual zoom + offset).
+- **Draggable green overlay** — click and drag anywhere on the preview to move the crop window. Anchor snaps to center so offsets cover the full source extent.
+- Output: `IMAGE`.
+
+---
+
+#### 🎥 Video Crop / Video Crop Upload *(new in v2.1.0)* — video crop / resize
+
+Same UX as Image Crop, but for video. Plays with audio so you can preview the framing in motion.
+
+> 📸 *Add screenshot of Video Crop node here*
+
+- Everything Image Crop has, plus playback.
+- Path A bakes the resized clip in-browser via `<canvas>` + `MediaRecorder` (audio passthrough). Bake duration ≈ playback duration of the clip.
+- Path B resizes server-side via OpenCV (`cv2.INTER_AREA` for downscale, `cv2.INTER_LANCZOS4` for upscale) — fast on long clips.
+- Output: `VIDEO`.
 
 ### 🎛️ Interactive Image Filter
 A powerful real-time image filter system with WebGL preview:
@@ -147,6 +195,10 @@ Bring your patterns to life with mathematical precision:
 - **Media Extractor Upload** - Same, but the video persists in `input/` across reloads *(server-side)*
 - **Video Trim** - Load a video locally, set in/out points, output the trimmed `VIDEO` *(client-side bake)*
 - **Video Trim Upload** - Same, persistent across reloads, lazy `VideoFromFile.as_trimmed()` on the backend
+- **Image Crop** *(v2.1.0)* - Load an image locally, crop / resize with a draggable overlay, output `IMAGE`
+- **Image Crop Upload** *(v2.1.0)* - Same, persistent; server-side resize via PIL
+- **Video Crop** *(v2.1.0)* - Load a video locally, crop / resize with a draggable overlay, output `VIDEO`
+- **Video Crop Upload** *(v2.1.0)* - Same, persistent; server-side resize via OpenCV (per-frame)
 
 ### Purz/Image/Color
 - **Image to Black & White** - Convert color images to grayscale
@@ -253,6 +305,9 @@ Future plans for ComfyUI-Purz:
 - [x] **Media Extractor** - Standalone video frame picker (v2.0.0)
 - [x] **Video Trim** - In/out point trimming with `VIDEO` output (v2.0.0)
 - [x] **Pixelate Rewrite** - Retro palettes, dithering, grid lines (v2.0.0)
+- [x] **Image Crop + Video Crop** - Standalone crop / resize nodes with live preview (v2.1.0)
+- [x] **Draggable crop overlay** - Position the crop window by dragging the green box (v2.1.0)
+- [x] **Smooth video previews** - rVFC-driven playback, capped preview canvas (v2.1.0)
 - [ ] **Native UI Refactor** - Refactor effects layers window to use native ComfyUI elements for proper resize on V1/V2
 
 ### Creating Custom Effects
@@ -274,6 +329,14 @@ You can create your own WebGL filter effects:
 4. Restart ComfyUI - your effect will appear in the dropdown
 
 ## 📋 Changelog
+
+### v2.1.0 (2026-05-19)
+- **Image Crop + Image Crop Upload + Video Crop + Video Crop Upload** — Four new standalone crop / resize nodes (`Purz/Interactive`). Each pair has a client-side variant (source stays in the browser, baked on Queue) and an upload variant (file lives in `input/`, processed server-side). Live preview canvas shows the full source with a green overlay marking the crop region; 14 aspect-ratio presets; four fit modes (stretch / cover / contain / crop).
+- **Draggable crop overlay** — Click and drag the green rectangle on any crop preview to position the crop window. Anchor snaps to center, `offset_x` / `offset_y` track the drag, the workflow stays in sync.
+- **Playback controls** on every video preview widget. Extractor nodes get Play / Pause that commits on pause. Trim nodes get Play Loop that auto-rewinds between the trim handles for accurate preview.
+- **Preview performance** — Canvas capped at 720px on its longest side, redrawn via `requestVideoFrameCallback` for per-frame updates during playback (was throttled to ~4 fps by `timeupdate`).
+- **Server-side video resize** switched from PIL `Image.LANCZOS` to OpenCV (`cv2.INTER_AREA` / `cv2.INTER_LANCZOS4`) with a single bulk uint8 conversion — roughly 10× faster on long clips.
+- **Diagnostic + defensive fixes** for the Path-A bake protocol: `fsync` after writing baked PNG / webm, small post-wait sleep before reading cached files, eager PIL decode to surface partial-write errors, hardened `unique_id` check, named print lines that pinpoint cache miss reasons.
 
 ### v2.0.0 (2026-05-18)
 - **Media Extractor + Media Extractor Upload** — Standalone frame-picker nodes. Path A keeps the video file in the browser; only the chosen frame goes to the backend. Path B uploads to `input/` for cross-reload persistence.

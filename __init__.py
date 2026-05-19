@@ -17,6 +17,8 @@ try:
     from . import interactive_filters as _interactive_filters_routes  # noqa: F401
     from . import media_extractor as _media_extractor_routes  # noqa: F401
     from . import video_trim as _video_trim_routes  # noqa: F401
+    from . import image_crop as _image_crop_routes  # noqa: F401
+    from . import video_crop as _video_crop_routes  # noqa: F401
 
     # V3 is available - define the combined extension
     class PurzExtension(ComfyExtension):
@@ -39,6 +41,8 @@ try:
             from .interactive_filters_v3 import InteractiveImageFilter
             from .media_extractor_v3 import MediaExtractor, MediaExtractorUpload
             from .video_trim_v3 import VideoTrim, VideoTrimUpload
+            from .image_crop_v3 import ImageCrop as ImageCropV3, ImageCropUpload as ImageCropUploadV3
+            from .video_crop_v3 import VideoCrop as VideoCropV3, VideoCropUpload as VideoCropUploadV3
 
             return [
                 # Image Effects
@@ -68,6 +72,10 @@ try:
                 MediaExtractorUpload,
                 VideoTrim,
                 VideoTrimUpload,
+                ImageCropV3,
+                ImageCropUploadV3,
+                VideoCropV3,
+                VideoCropUploadV3,
             ]
 
     async def comfy_entrypoint() -> PurzExtension:

@@ -200,9 +200,13 @@ class VideoCrop:
         PURZ_VIDEO_CROP_BAKE_ID[node_id] = bake_id
         PURZ_VIDEO_CROP_BAKE_READY[node_id] = False
 
+        cached_path = PURZ_VIDEO_CROP_BAKED.get(node_id)
+        has_cached = bool(cached_path and os.path.exists(cached_path))
+
         PromptServer.instance.send_sync("purz.video_crop.bake_requested", {
             "node_id": node_id,
             "bake_id": bake_id,
+            "has_cached": has_cached,
         })
 
         max_wait = 600.0
@@ -360,6 +364,14 @@ if HAS_SERVER:
             node_id = str(data.get("node_id", "")).strip()
             if not node_id:
                 return web.json_response({"error": "missing node_id"}, status=400)
+            cached_path = PURZ_VIDEO_CROP_BAKED.get(node_id)
+            if not (cached_path and os.path.exists(cached_path)):
+                print(f"[Purz VideoCrop] /bake_ready called for node {node_id!r} "
+                      f"but server has no cached file. Refusing the ack.")
+                return web.json_response(
+                    {"error": "no cached bake on server", "needs_bake": True},
+                    status=409,
+                )
             PURZ_VIDEO_CROP_BAKE_READY[node_id] = True
             return web.json_response({"success": True})
         except Exception as e:

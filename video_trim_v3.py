@@ -20,6 +20,7 @@ from .video_trim import (
     PURZ_TRIM_BAKE_READY,
     PURZ_TRIM_BAKE_ID,
     _empty_video,
+    _read_cached_trim_with_diag,
 )
 from .media_extractor import list_input_videos, NO_VIDEO_PLACEHOLDER
 
@@ -53,21 +54,23 @@ class VideoTrim(io.ComfyNode):
 
     @classmethod
     def execute(cls, **kwargs) -> io.NodeOutput:
-        node_id = str(cls.hidden.unique_id) if cls.hidden and cls.hidden.unique_id else None
+        node_id = str(cls.hidden.unique_id) if cls.hidden and cls.hidden.unique_id is not None else None
         if not node_id or not HAS_SERVER:
-            path = PURZ_TRIM_BAKED.get(node_id) if node_id else None
-            if path and os.path.exists(path):
-                return io.NodeOutput(VideoFromFile(path))
-            return io.NodeOutput(_empty_video())
+            print(f"[Purz VideoTrim V3] Early-return path (node_id={node_id!r}, HAS_SERVER={HAS_SERVER})")
+            return io.NodeOutput(_read_cached_trim_with_diag(node_id, "VideoTrim V3"))
 
         # Tell the frontend to bake. See video_trim.py for the protocol.
         bake_id = f"{node_id}_{int(time.time() * 1000)}_{random.randint(0, 99999)}"
         PURZ_TRIM_BAKE_ID[node_id] = bake_id
         PURZ_TRIM_BAKE_READY[node_id] = False
 
+        cached_path = PURZ_TRIM_BAKED.get(node_id)
+        has_cached = bool(cached_path and os.path.exists(cached_path))
+
         PromptServer.instance.send_sync("purz.video_trim.bake_requested", {
             "node_id": node_id,
             "bake_id": bake_id,
+            "has_cached": has_cached,
         })
 
         max_wait = 600.0
@@ -84,13 +87,11 @@ class VideoTrim(io.ComfyNode):
         if not PURZ_TRIM_BAKE_READY.get(node_id, False):
             print(f"[Purz VideoTrim V3] Timed out waiting for frontend bake after {waited:.0f}s")
 
+        time.sleep(0.05)  # let any pending OS write buffer flush
         PURZ_TRIM_BAKE_READY.pop(node_id, None)
         PURZ_TRIM_BAKE_ID.pop(node_id, None)
 
-        path = PURZ_TRIM_BAKED.get(node_id)
-        if not path or not os.path.exists(path):
-            return io.NodeOutput(_empty_video())
-        return io.NodeOutput(VideoFromFile(path))
+        return io.NodeOutput(_read_cached_trim_with_diag(node_id, "VideoTrim V3"))
 
 
 class VideoTrimUpload(io.ComfyNode):

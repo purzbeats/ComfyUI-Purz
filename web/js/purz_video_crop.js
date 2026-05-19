@@ -294,9 +294,10 @@ class VideoCropWidget {
         else this._stopRVFCLoop();
     }
 
-    async handleBakeRequest() {
+    async handleBakeRequest(opts = {}) {
         if (!this.node || this.node.id == null) return;
         const nodeId = this.node.id;
+        const serverHasCache = opts.serverHasCache === true;
         try {
             if (!this.sourceReady) {
                 await fetch(`/purz/video_crop/set_baked?node_id=${encodeURIComponent(nodeId)}`, {
@@ -304,13 +305,16 @@ class VideoCropWidget {
                 });
                 return;
             }
-            if (this._bakeFresh) {
+            if (this._bakeFresh && serverHasCache) {
                 await fetch("/purz/video_crop/bake_ready", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ node_id: nodeId }),
                 });
                 return;
+            }
+            if (this._bakeFresh && !serverHasCache) {
+                this._bakeFresh = false;
             }
             await this._bakeVideo(nodeId);
         } catch (err) {
@@ -436,7 +440,7 @@ app.registerExtension({
 
     async setup() {
         api.addEventListener("purz.video_crop.bake_requested", async (event) => {
-            const { node_id } = event.detail || {};
+            const { node_id, has_cached } = event.detail || {};
             if (node_id == null) return;
             let node = app.graph._nodes_by_id?.[node_id];
             if (!node) node = app.graph._nodes_by_id?.[parseInt(node_id, 10)];
@@ -450,7 +454,7 @@ app.registerExtension({
                 } catch (_) {}
                 return;
             }
-            await node.videoCropWidget.handleBakeRequest();
+            await node.videoCropWidget.handleBakeRequest({ serverHasCache: !!has_cached });
         });
     },
 

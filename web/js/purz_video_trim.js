@@ -528,9 +528,14 @@ class VideoTrimWidget {
      * by uploading a fresh bake or by sending a short ack if the cached
      * bake is still good.
      */
-    async handleBakeRequest() {
+    async handleBakeRequest(opts = {}) {
         if (!this.node || this.node.id == null) return;
         const nodeId = this.node.id;
+        // The server tells us in the event whether it actually has the
+        // cached file on disk. The browser's bakeFresh flag alone isn't
+        // trustworthy because it survives ComfyUI restarts (which clear
+        // the server-side cache).
+        const serverHasCache = opts.serverHasCache === true;
 
         try {
             if (!this.hasVideo) {
@@ -544,8 +549,8 @@ class VideoTrimWidget {
                 return;
             }
 
-            if (this.bakeFresh && this.bakedDuration > 0) {
-                // Cached bake matches current trim — short-circuit the wait.
+            if (this.bakeFresh && this.bakedDuration > 0 && serverHasCache) {
+                // Both sides agree the cache is fresh — short-circuit the wait.
                 await fetch("/purz/video_trim/bake_ready", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -554,6 +559,11 @@ class VideoTrimWidget {
                 this.bakeStatus.textContent = "Using cached bake ✓";
                 this.bakeStatus.style.color = "#86efac";
                 return;
+            }
+            // Either we never baked this session, the trim moved since the
+            // last bake, or the server restarted and lost its cache. Bake fresh.
+            if (this.bakeFresh && !serverHasCache) {
+                this.bakeFresh = false;  // server doesn't have it, force re-bake
             }
 
             const ok = await this._bake();
@@ -636,7 +646,7 @@ app.registerExtension({
         // Each VideoTrim node bakes (or acks if its cached bake is fresh)
         // and the backend's wait loop resumes.
         api.addEventListener("purz.video_trim.bake_requested", async (event) => {
-            const { node_id } = event.detail || {};
+            const { node_id, has_cached } = event.detail || {};
             if (node_id == null) return;
 
             let node = app.graph._nodes_by_id?.[node_id];
@@ -653,7 +663,7 @@ app.registerExtension({
                 } catch (_) {}
                 return;
             }
-            await node.videoTrimWidget.handleBakeRequest();
+            await node.videoTrimWidget.handleBakeRequest({ serverHasCache: !!has_cached });
         });
     },
 

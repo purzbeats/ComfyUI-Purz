@@ -241,9 +241,10 @@ class ImageCropWidget {
         this.previewCanvas.style.cursor = draggable ? "move" : "default";
     }
 
-    async handleBakeRequest() {
+    async handleBakeRequest(opts = {}) {
         if (!this.node || this.node.id == null) return;
         const nodeId = this.node.id;
+        const serverHasCache = opts.serverHasCache === true;
         try {
             if (!this.sourceReady) {
                 await fetch(`/purz/image_crop/set_baked?node_id=${encodeURIComponent(nodeId)}`, {
@@ -251,13 +252,16 @@ class ImageCropWidget {
                 });
                 return;
             }
-            if (this._bakeFresh) {
+            if (this._bakeFresh && serverHasCache) {
                 await fetch("/purz/image_crop/bake_ready", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ node_id: nodeId }),
                 });
                 return;
+            }
+            if (this._bakeFresh && !serverHasCache) {
+                this._bakeFresh = false;
             }
             const canvas = document.createElement("canvas");
             canvas.width = this.outW; canvas.height = this.outH;
@@ -312,7 +316,7 @@ app.registerExtension({
 
     async setup() {
         api.addEventListener("purz.image_crop.bake_requested", async (event) => {
-            const { node_id } = event.detail || {};
+            const { node_id, has_cached } = event.detail || {};
             if (node_id == null) return;
             let node = app.graph._nodes_by_id?.[node_id];
             if (!node) node = app.graph._nodes_by_id?.[parseInt(node_id, 10)];
@@ -326,7 +330,7 @@ app.registerExtension({
                 } catch (_) {}
                 return;
             }
-            await node.imageCropWidget.handleBakeRequest();
+            await node.imageCropWidget.handleBakeRequest({ serverHasCache: !!has_cached });
         });
     },
 

@@ -58,6 +58,34 @@ def _empty_video():
     return VideoFromComponents(components)
 
 
+def _read_cached_trim_with_diag(node_id, label):
+    """
+    Read the baked webm for `node_id`, returning a VideoFromFile or the
+    black-frame fallback. On miss, prints a diagnostic line saying WHY so
+    a 64×64 fallback is debuggable instead of mysterious.
+    """
+    if not node_id:
+        print(f"[Purz {label}] No node_id passed to read_cached")
+        return _empty_video()
+    path = PURZ_TRIM_BAKED.get(node_id)
+    if not path:
+        print(f"[Purz {label}] BAKED dict has no entry for node {node_id!r}. "
+              f"Current keys: {list(PURZ_TRIM_BAKED.keys())}")
+        return _empty_video()
+    if not os.path.exists(path):
+        print(f"[Purz {label}] Cached file does not exist: {path}")
+        return _empty_video()
+    try:
+        size = os.path.getsize(path)
+        if size == 0:
+            print(f"[Purz {label}] Cached file is empty: {path}")
+            return _empty_video()
+        return VideoFromFile(path)
+    except Exception as e:
+        print(f"[Purz {label}] Failed to wrap cached webm at {path}: {e}")
+        return _empty_video()
+
+
 def _baked_path_for(node_id):
     """Path inside ComfyUI's temp dir where Path A stores baked webm blobs."""
     temp_dir = folder_paths.get_temp_directory()
@@ -96,10 +124,8 @@ class VideoTrim:
     def process(self, unique_id=None):
         node_id = str(unique_id) if unique_id is not None else None
         if not node_id or not HAS_SERVER:
-            path = PURZ_TRIM_BAKED.get(node_id) if node_id else None
-            if path and os.path.exists(path):
-                return (VideoFromFile(path),)
-            return (_empty_video(),)
+            print(f"[Purz VideoTrim V1] Early-return path (node_id={node_id!r}, HAS_SERVER={HAS_SERVER})")
+            return (_read_cached_trim_with_diag(node_id, "VideoTrim V1"),)
 
         # Signal the frontend to bake the current trim. The frontend will
         # POST the baked webm (which sets PURZ_TRIM_BAKE_READY), or POST a
@@ -109,9 +135,17 @@ class VideoTrim:
         PURZ_TRIM_BAKE_ID[node_id] = bake_id
         PURZ_TRIM_BAKE_READY[node_id] = False
 
+        # Tell the frontend whether we actually have the cached file on disk.
+        # The frontend's bakeFresh flag is browser-only — it survives ComfyUI
+        # restarts even though our cache doesn't, so the frontend can't be
+        # trusted to know on its own.
+        cached_path = PURZ_TRIM_BAKED.get(node_id)
+        has_cached = bool(cached_path and os.path.exists(cached_path))
+
         PromptServer.instance.send_sync("purz.video_trim.bake_requested", {
             "node_id": node_id,
             "bake_id": bake_id,
+            "has_cached": has_cached,
         })
 
         # Wait. Bakes are real-time, so allow up to 10 minutes for long clips.
@@ -130,14 +164,14 @@ class VideoTrim:
         if not PURZ_TRIM_BAKE_READY.get(node_id, False):
             print(f"[Purz VideoTrim] Timed out waiting for frontend bake after {waited:.0f}s")
 
+        # Give the OS a moment to make the just-written file visible from
+        # this thread before we try to read it (Windows write-buffer races).
+        time.sleep(0.05)
         # Cleanup. Leave PURZ_TRIM_BAKED in place — it's the cached file.
         PURZ_TRIM_BAKE_READY.pop(node_id, None)
         PURZ_TRIM_BAKE_ID.pop(node_id, None)
 
-        path = PURZ_TRIM_BAKED.get(node_id)
-        if not path or not os.path.exists(path):
-            return (_empty_video(),)
-        return (VideoFromFile(path),)
+        return (_read_cached_trim_with_diag(node_id, "VideoTrim V1"),)
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +275,11 @@ if HAS_SERVER:
             with open(out_path, "wb") as f:
                 async for chunk in request.content.iter_chunked(64 * 1024):
                     f.write(chunk)
+                f.flush()
+                try:
+                    os.fsync(f.fileno())
+                except OSError:
+                    pass
 
             size = os.path.getsize(out_path)
             if size == 0:
@@ -269,12 +308,26 @@ if HAS_SERVER:
         Frontend signals that an existing cached bake is still fresh, or that
         a bake failed and we should stop waiting. No file write — just unblock
         the backend's wait loop.
+
+        Defensive: refuse the ack if we don't actually have the cached file.
+        A stale frontend (pre-hard-refresh) might ack with `bakeFresh=true`
+        even though our cache was lost in a restart; letting that through
+        would silently return an empty fallback to the workflow.
         """
         try:
             data = await request.json()
             node_id = str(data.get("node_id", "")).strip()
             if not node_id:
                 return web.json_response({"error": "missing node_id"}, status=400)
+            cached_path = PURZ_TRIM_BAKED.get(node_id)
+            if not (cached_path and os.path.exists(cached_path)):
+                print(f"[Purz VideoTrim] /bake_ready called for node {node_id!r} "
+                      f"but server has no cached file. Refusing the ack "
+                      f"(hard-refresh the browser to load the latest frontend).")
+                return web.json_response(
+                    {"error": "no cached bake on server", "needs_bake": True},
+                    status=409,
+                )
             PURZ_TRIM_BAKE_READY[node_id] = True
             return web.json_response({"success": True})
         except Exception as e:

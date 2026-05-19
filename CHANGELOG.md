@@ -4,6 +4,13 @@ All notable changes to ComfyUI-Purz are documented here. This includes every cha
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-05-19
+
+### Fixed
+- **Video Trim / Image Crop / Video Crop returning 64×64 black after a ComfyUI restart** — The frontend's `bakeFresh` flag lives in browser memory and survives ComfyUI restarts, but the server-side `PURZ_*_BAKED` dicts don't. After a restart, the browser would short-circuit the bake protocol by acking `/bake_ready` for a cache that no longer existed on disk; the wait loop would unblock at ~100 ms and read empty cache → empty fallback returned to the workflow. Fixed two ways:
+  1. **Server signals cache state in the bake-requested event**: `purz.video_trim.bake_requested` / `purz.image_crop.bake_requested` / `purz.video_crop.bake_requested` now include a `has_cached: bool` field. The frontend only takes the fast-ack path if both sides agree the cache is fresh; otherwise it forces a real re-bake.
+  2. **Server validates `/bake_ready` acks**: each `/bake_ready` route now refuses the ack with `409 Conflict` if no cached file exists for that node, with a console message telling the user to hard-refresh the browser. Loud failure beats silent corruption — a stale frontend will no longer cause empty outputs.
+
 ## [2.1.0] - 2026-05-19
 
 ### Added
